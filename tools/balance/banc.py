@@ -62,11 +62,18 @@ def lancer(graines, jour_max):
 def agreger(parties):
     finies = [p for p in parties if p["complete"]]
     col = lambda k: [p[k] for p in parties]
+    # ⚠️ `heures` doit se calculer sur LA MEME POPULATION que `jours` — les
+    # parties terminees. Sinon une partie tronquee a jour_max entre dans la
+    # mediane des heures mais pas dans celle des jours, et le balayage ment :
+    # a NOTORIETE_PAR_NOTE=2.2 il annoncait 35 h pour 608 jours, soit dix fois
+    # la valeur reelle. Une metrique qui change de population en cours de
+    # tableau ne se compare a rien.
+    jours_ref = [p["fini_le"] for p in finies] if finies else col("jour")
     return {
         "graines": len(parties),
         "completion": len(finies) / len(parties),
-        "jours": med([p["fini_le"] for p in finies] if finies else col("jour")),
-        "heures": med(col("heures")),
+        "jours": med(jours_ref),
+        "heures": round(med(jours_ref) * K.MS_PAR_JOUR / 3600000, 2),
         "contrats": med(col("contrats")),
         "refuses": med(col("refuses")),
         "rates": med(col("rates")),

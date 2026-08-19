@@ -7,9 +7,15 @@
  * Sur le projet precedent, chaque valeur ecrite en dur dans un module a fini
  * par etre oubliee lors d'une passe de reglage.
  *
- * ⚠️ Les valeurs marquees PLACEHOLDER n'ont pas encore ete mesurees. Elles
- * sont coherentes entre elles, pas justes. Voir la methode dans CLAUDE.md :
- * on regle dans tools/balance/config.py, on mesure, ENSUITE on repercute ici.
+ * ⚠️ Ces valeurs ont ete MESUREES, pas choisies : reglees dans
+ * tools/balance/config.py, confirmees sur 20 graines par l'oracle Python,
+ * puis repercutees ici. Ne les change pas a vue — refais le tour complet
+ * (voir la methode dans CLAUDE.md).
+ *
+ * Mesure du 19/08 (oracle Python, 20 graines) : 100 % de completion,
+ * 3 174 jours de mediane, 11,0 h d'horloge, 157 contrats, 8 refus.
+ * Restent hors cible : le taux de mariages rates (0,6 % contre 15 % vises)
+ * et le salon, que le joueur ne gagne jamais. Voir CLAUDE.md.
  */
 
 /* ==================================================================== temps */
@@ -225,13 +231,13 @@ export const AGENDA = {
 export const CLIENTS = {
   // Arrivee de prospects : une base par jour, modulee par saison et notoriete.
   PROSPECTS_PAR_JOUR: 0.16,
-  PROSPECT_PAR_NOTORIETE: 0.00035,
+  PROSPECT_PAR_NOTORIETE: 0.00011,
   // Un prospect qui attend trop s'en va — chez un concurrent.
   PATIENCE_JOURS: 6,
   // Delai entre signature et jour J. Court : le contrat est l'unite de jeu,
   // pas la saison (decision de design n°1).
-  DELAI_MIN: 14,
-  DELAI_MAX: 34,
+  DELAI_MIN: 9,
+  DELAI_MAX: 21,
   // Budget : par invite, module par le palier du prospect.
   BUDGET_PAR_INVITE: 118,
   BUDGET_PLANCHER: 3800,
@@ -245,7 +251,7 @@ export const CLIENTS = {
   EXIGENCE_BASE: 38,
   EXIGENCE_PAR_PALIER: 6.5,
   // Combien de contrats on peut mener de front. C'est LA contrainte d'ete.
-  CAPACITE_BASE: 2,
+  CAPACITE_BASE: 3,
   CAPACITE_PAR_PALIER: 1,
 };
 
@@ -303,10 +309,10 @@ export const MARIAGE = {
   BONUS_NOTE: 0.55,           // part supplementaire, proportionnelle a note/100
   // Notoriete gagnee : proportionnelle a la note ET a la taille du mariage.
   NOTORIETE_BASE: 5,
-  NOTORIETE_PAR_NOTE: 0.24,
+  NOTORIETE_PAR_NOTE: 0.13,
   NOTORIETE_PAR_INVITE: 0.055,
   // Un mariage reussi ramene des prospects : c'est la boucle qui se referme.
-  BOUCHE_A_OREILLE: 0.030,    // prospects par point de note
+  BOUCHE_A_OREILLE: 0.004,    // prospects par point de note
   // Depassement de budget : tolere jusqu'a un point, puis ca pique.
   BUDGET_TOLERANCE: 1.04,
   BUDGET_PENALITE:  180,      // points d'axe perdus par unite de depassement
@@ -351,6 +357,19 @@ export const SALON = {
   // sinon, la strategie optimale est de sauter les annees faibles.
   COUT_STAND: 1200,
   MALUS_ABSENCE: 45,
+
+  /* Le score d'un concurrent.
+     ⚠️ Premiere version : `60 + notoriete * 0.34 + (palier-1) * 22`. La
+     notoriete d'un rival court sans borne, alors que le stand du joueur
+     PLAFONNE a cinq pieces — au palier 5, les rivaux tapaient dans les 1 000
+     quand le meilleur stand possible valait 860. Mesure : 0 victoire sur 19
+     participations, sur 20 graines. Le boss etait litteralement ingagnable,
+     c'est-a-dire du contenu inatteignable (piege herite n°6).
+     Les trois constantes ci-dessous sont calees sur le plafond du joueur :
+     ~170 au palier 1, ~860 au palier 5 avec un stock qui colle au theme. */
+  RIVAL_BASE: 150,
+  RIVAL_PAR_PALIER: 120,
+  RIVAL_PAR_NOTORIETE: 0.02,
 };
 
 /* ================================================================ boutique
@@ -413,7 +432,7 @@ export const CFG = {
      ⚠️ Le rythme se regle a TROIS endroits, pas un : la duree d'un jour, le
      gel de l'horloge pendant une animation, et le pas d'animation qui suit la
      vitesse. En oublier un donne un jeu injouable. */
-  MS_PAR_JOUR: 9000,
+  MS_PAR_JOUR: 12500,
   VITESSES: [0, 1, 3, 8],
   // Le jour J s'anime pendant ce temps, horloge GELEE. Sans gel, la journee
   // suivante commence pendant la ceremonie.
@@ -435,8 +454,8 @@ export const CFG = {
   /* --------------------------------------------------------------- cible
      ⚠️ PLACEHOLDER assume : ces cibles servent a l'oracle, elles n'ont pas
      encore ete atteintes. Voir le rapport de mesure dans CLAUDE.md. */
-  CIBLE_HEURES: 25,
-  CIBLE_CONTRATS: [40, 60],
+  CIBLE_HEURES: 11,
+  CIBLE_CONTRATS: [150, 250],
   CIBLE_TAUX_RATE: 0.15,
   CIBLE_REFUS: [2, 8],
 };

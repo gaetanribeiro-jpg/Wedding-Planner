@@ -298,88 +298,65 @@ complétion 100 %, durée ~25 h, taux de mariages ratés ~15 %, contrats refusé
 **La tranche verticale tourne, de bout en bout.** Boutique isométrique → stock
 → carnet de prospects → dossier à six emplacements → jour J résolu puis animé →
 notoriété → palier. Le salon annuel est jouable (thème tiré, classement,
-prix). Sauvegarde + code de partie compressé. Guide en huit étapes validées
-sur l'état.
+prix). Sauvegarde + code de partie compressé (7 ko après 300 jours). Guide en
+huit étapes validées sur l'état.
 
 Vérifié dans un vrai navigateur : écran titre, partie neuve, les sept onglets,
-zéro erreur console. `npm run solo` produit un fichier unique de 220 ko qui
-s'ouvre en `file://`.
+signature d'un contrat, remplissage des six emplacements, jour J animé, zéro
+erreur console. `npm run solo` produit un fichier unique de 220 ko qui s'ouvre
+en `file://`.
 
-### La première mesure — 20 graines, les deux oracles
+### La durée de vie a été tranchée avec l'utilisateur
 
-| Métrique | Mesuré | Cible | |
-|---|---|---|---|
-| Complétion (palier 5) | **100 %** | 100 % | ✅ |
-| Jours (médiane) | 6 813 | — | |
-| Heures d'horloge à 1× | **17,0 h** | ~25 h | ⚠️ court d'un tiers |
-| Contrats signés | **661** | 40–60 | ❌ **11× trop** |
-| Contrats refusés | **533** | 2–8 | ❌ |
-| Taux de mariages ratés | **0,7 %** | 15 % | ❌ **le jeu n'a pas de dents** |
-| Salons gagnés | **0 sur 19** | — | ❌ **boss inatteignable** |
+Les deux cibles du briefing d'origine — « 40 à 60 contrats » et « ~25 h » —
+étaient arithmétiquement incompatibles : un contrat dure quelques jours et on
+en mène plusieurs de front, donc 50 contrats ≈ 600 jours ≈ 1,5 h.
+**Décision : le compromis.** ~200 contrats, ~11 h d'horloge. Les cibles de
+`config.js` ont été mises à jour en conséquence (`CIBLE_CONTRATS: [150, 250]`,
+`CIBLE_HEURES: 11`).
 
-### ⚠️ La parité n'est pas atteinte — à régler EN PREMIER
+### La mesure — 20 graines, les deux oracles
 
-Les deux oracles tombent d'accord sur ce qui est **intensif** et divergent de
-~21 % sur ce qui est **extensif** :
+| Métrique | Python | JS | Cible | |
+|---|---|---|---|---|
+| Complétion (palier 5) | 100 % | 100 % | 100 % | ✅ |
+| Jours (médiane) | 3 174 | 2 967 | — | |
+| Heures d'horloge | 11,0 h | 10,3 h | ~11 h | ✅ |
+| Contrats signés | 157 | 152 | 150–250 | ✅ |
+| Contrats refusés | 8,5 | 9 | 2–8 | ≈ |
+| **Taux de ratés** | **0,6 %** | **0,7 %** | **15 %** | ❌ |
+| **Salons gagnés** | **0 / 8** | **0 / 8** | — | ❌ |
 
-| Métrique | Python | JS | Écart |
-|---|---|---|---|
-| note moyenne | 60,5 | 60,3 | **0,3 %** ✅ |
-| palier atteint | 5 | 5 | **0 %** ✅ |
-| taux de raté | 0,6 % | 0,7 % | 7,7 % |
-| jours | 8 680 | 6 813 | **21,5 %** ❌ |
-| contrats | 852 | 662 | **22,4 %** ❌ |
-| visiteurs | 368 613 | 293 313 | **20,4 %** ❌ |
+Écart maximal entre les deux oracles : **8,1 %** (jours 6,6 %, contrats 3,2 %,
+note 0,7 %, palier 0 %). Il était de 22,6 % avant le réglage — la partie
+faisait alors 8 700 jours, et l'économie de boutique s'auto-alimente
+(attrait → visiteurs → argent → meubles → attrait), donc le moindre écart s'y
+composait. **Toujours au-dessus des 5 % qui rendent une mesure crédible**,
+mais assez proche pour comparer des variantes.
 
-Les **règles** concordent (une note se calcule pareil des deux côtés) ; c'est
-la **trajectoire** qui diverge. Tant que ce n'est pas fermé, lis les chiffres
-absolus à ±20 % et ne t'en sers que pour comparer des variantes **au sein du
-même oracle**.
+### ⚠️ Les deux choses qui restent, et pourquoi elles ne sont pas des réglages
 
-**Déjà écarté** (vérifié, sans effet mesurable) :
-- le générateur — mulberry32 rend une suite identique au bit près ;
-- l'ordre de consommation d'`alea()` à la création d'un article, dans la
-  journée de boutique, chez les rivaux, au salon ;
-- un prospect expiré part chez un concurrent (manquait côté Python — corrigé,
-  n'a pas fermé l'écart) ;
-- `OUBLI_JOURS` sur le compteur de refus (manquait — corrigé, sans effet) ;
-- l'aménagement au jour 1 (le JS ne peut pas, faute de veille — symétrisé) ;
-- les tapis et cadres comptés à tort comme voisins de combo côté Python
-  (corrigé, sans effet mesurable : l'IA n'en achète presque pas).
+**1. Le jeu n'a pas de dents (0,6 % de ratés contre 15 % visés).**
+Ce n'est pas une constante à monter : c'est structurel. `estimer()` appelle
+`resoudre()`, la fonction même du jour J — donc **le joueur peut prédire la
+note exactement au moment de signer**. Monter `EXIGENCE_BASE` ne produit pas
+d'échecs, seulement des refus. Pour que la décision n°7 existe, il faut de
+l'incertitude **après** la signature. Trois pistes, à arbitrer :
+- l'exigence du couple n'est révélée qu'en partie à la signature ;
+- des événements entre la signature et le jour J (un prestataire se décommande,
+  le couple ajoute quarante invités, la météo) ;
+- l'exigence monte si la préparation traîne.
+La deuxième est la plus dans l'esprit Kairosoft et réutilise l'agenda déjà là.
 
-**Où chercher ensuite.** L'économie de boutique est un circuit qui
-s'auto-alimente — attrait → visiteurs → argent → meubles → attrait. Une
-différence minime et *persistante* s'y compose. Le plus prometteur est de
-comparer jour par jour, sur une graine, `attrait` / `recette` / `argent`
-plutôt que les totaux de fin : le harnais de trace existe déjà
-(`tools/` + une boucle de 400 jours), c'est ce qui a permis de trouver les
-quatre correctifs ci-dessus.
+**2. Le salon reste ingagnable (0 victoire sur 8).**
+Le score des rivaux a pourtant été réindexé sur le palier plutôt que sur leur
+notoriété — qui courait sans borne — et calé sur le plafond du joueur
+(`SALON.RIVAL_BASE`, `RIVAL_PAR_PALIER`, `RIVAL_PAR_NOTORIETE`). Ça n'a pas
+suffi : le stand plafonne à `PIECES_STAND` pièces, et l'IA n'accumule pas un
+stock assez varié pour qu'un thème lui soit favorable. À mesurer avant de
+retoucher : **quelle note de stand le joueur atteint réellement**, par thème
+(l'onglet SALON l'affiche déjà en jeu). C'est le piège n°6 — mesure ce que le
+joueur obtient, pas ce que la table contient.
 
-### ⚠️ Les trois choses à régler ensuite, dans cet ordre
-
-1. **« 40–60 contrats » et « ~25 h » sont arithmétiquement incompatibles.**
-   Un contrat dure 14 à 34 jours et on en mène 2 à 6 de front ; 50 contrats,
-   c'est donc ~600 jours, soit **1,5 h** à 9 s/jour. Pour tenir 25 h il faut
-   ~10 000 jours, donc ~700 contrats. **Il faut choisir**, et c'est une
-   décision de design, pas un réglage :
-   - soit la durée de vie prime → la cible passe à ~500 contrats et le contrat
-     devient un geste courant ;
-   - soit la rareté prime → 40–60 contrats, ~3 h d'horloge, et les 25 h
-     doivent venir d'ailleurs (jours plus lents, ou temps passé en menus).
-   Tant que ce n'est pas tranché, `CIBLE_CONTRATS` et `CIBLE_HEURES` se
-   contredisent et l'oracle signalera toujours une des deux au rouge.
-
-2. **Le jeu n'a pas de dents** (0,7 % de ratés contre 15 % visés). La
-   décision de design n°7 dit que c'est le point le plus important après la
-   boucle. Piste mesurée : `EXIGENCE_BASE` / `EXIGENCE_PAR_PALIER` montent
-   trop lentement devant la qualité du stock accumulé.
-
-3. **Le salon est du contenu inatteignable** (piège n°6) : 0 victoire sur 19
-   participations, sur 20 graines. Cause identifiée dans `scoreConcurrent` —
-   le score d'un rival croît avec sa notoriété **sans borne**, alors que le
-   stand du joueur plafonne à 5 pièces. Il faut indexer le rival sur le même
-   plafond que le joueur, pas sur une notoriété qui court.
-
-**Prochain pas :** trancher le point 1 avec l'utilisateur, puis régler 2 et 3
-par la méthode (`tools/balance/config.py` → `tune.py` → `banc.py` → JS →
-`npm run parite --graines 20`). Ne rien toucher au JS avant.
+**Prochain pas :** les deux points ci-dessus, dans cet ordre. Le premier est
+une décision de design ; le second est une mesure à faire avant tout réglage.

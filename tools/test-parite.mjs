@@ -79,15 +79,20 @@ if(empreinteSources() !== empreinte){
 
 const col = k => parties.map(p => p[k]);
 const finies = parties.filter(p => p.complete);
+const joursRef = finies.length ? finies.map(p => p.finiLe) : col("jour");
 
 const R = {
   graines: GRAINES,
   empreinteSources: empreinte,
   completion: finies.length / parties.length,
-  jours:        mediane(finies.length ? finies.map(p => p.finiLe) : col("jour")),
-  joursP10:     pct(finies.length ? finies.map(p => p.finiLe) : col("jour"), .10),
-  joursP90:     pct(finies.length ? finies.map(p => p.finiLe) : col("jour"), .90),
-  heures:       mediane(col("heuresHorloge")),
+  // ⚠️ `heures` se calcule sur LA MEME POPULATION que `jours` — les parties
+  // terminees. Une partie tronquee a jourMax entrerait dans la mediane des
+  // heures sans entrer dans celle des jours, et les deux chiffres cesseraient
+  // de parler de la meme chose.
+  jours:        mediane(joursRef),
+  joursP10:     pct(joursRef, .10),
+  joursP90:     pct(joursRef, .90),
+  heures:       +(mediane(joursRef) * CFG.MS_PAR_JOUR / 3600000).toFixed(2),
   contrats:     mediane(col("contrats")),
   refuses:      mediane(col("refuses")),
   rates:        mediane(col("rates")),

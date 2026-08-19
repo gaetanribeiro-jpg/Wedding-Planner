@@ -637,7 +637,11 @@ class Partie:
         lignes = []
         for r in self.rivaux:
             aff = K.AFFINITE[r["style"]][theme]
-            base = 60 + r["not"] * 0.34 + (self.palier - 1) * 22
+            # Le rival suit le PALIER, pas sa notoriete : celle-ci croit sans
+            # borne alors que le stand du joueur plafonne a cinq pieces.
+            base = (K.SALON_RIVAL_BASE
+                    + (self.palier - 1) * K.SALON_RIVAL_PAR_PALIER
+                    + r["not"] * K.SALON_RIVAL_PAR_NOTORIETE)
             lignes.append(round(base * ((1 - K.SALON_POIDS_THEME)
                                         + K.SALON_POIDS_THEME * aff * 1.6)
                                 * self.a.entre(0.92, 1.08)))

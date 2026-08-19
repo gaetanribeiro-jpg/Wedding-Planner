@@ -50,7 +50,13 @@ export const scoreStand = (pieces, theme) =>
  */
 export function scoreConcurrent(c, theme, palier){
   const aff = AFFINITE_STYLES[c.style][theme];
-  const base = 60 + c.notoriete * 0.34 + (palier - 1) * 22;
+  // ⚠️ Le rival suit le PALIER, pas sa notoriete. Sa notoriete ne pese qu'a
+  // peine : elle croit sans borne, alors que le stand du joueur plafonne a
+  // cinq pieces. Indexer le boss sur une grandeur non bornee, c'est le rendre
+  // ingagnable — voir la note dans config.js.
+  const base = SALON.RIVAL_BASE
+             + (palier - 1) * SALON.RIVAL_PAR_PALIER
+             + c.notoriete * SALON.RIVAL_PAR_NOTORIETE;
   return Math.round(base * ((1 - SALON.POIDS_THEME) + SALON.POIDS_THEME * aff * 1.6)
                     * rnd(0.92, 1.08));
 }
