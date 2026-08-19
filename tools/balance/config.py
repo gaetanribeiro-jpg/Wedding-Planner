@@ -195,20 +195,24 @@ SALON_PRIX = {1: (9000, 150), 2: (4500, 85), 3: (2000, 40)}
 
 # ----------------------------------------------------------------- boutique
 BOUTIQUE_L, BOUTIQUE_H = 9, 7
+# ⚠️ Le 7e champ dit si le meuble occupe le SOL. Un tapis (revetement) et un
+# cadre (mural) n'occupent pas de case, et surtout ils ne comptent PAS comme
+# voisins pour les combos — cote JS, `meubleEn()` les ignore. Sans ce champ,
+# l'oracle Python accordait des bonus de combo que le jeu ne donne pas.
 MEUBLES = {
-    # cle:        (prix, gain, places, attrait, palier, categorie)
-    "portant":    (420,  5.5, 2, 6,  1, "vente"),
-    "mannequin":  (680,  7.5, 1, 11, 1, "vente"),
-    "comptoir":   (900,  11,  1, 4,  1, "service"),
-    "vitrine":    (1150, 13,  1, 9,  2, "vente"),
-    "miroir":     (340,  2.0, 1, 8,  1, "confort"),
-    "plante":     (150,  0.6, 0, 5,  1, "confort"),
-    "canape":     (760,  3.0, 3, 7,  1, "confort"),
-    "tapis":      (480,  0,   0, 10, 2, "confort"),
-    "etagere":    (520,  6.0, 1, 5,  2, "vente"),
-    "cadre":      (190,  0,   0, 4,  1, "confort"),
-    "podium":     (1600, 19,  1, 14, 3, "service"),
-    "tableRonde": (1250, 16,  2, 6,  3, "service"),
+    # cle:        (prix, gain, places, attrait, palier, categorie, occupeLeSol)
+    "portant":    (420,  5.5, 2, 6,  1, "vente", True),
+    "mannequin":  (680,  7.5, 1, 11, 1, "vente", True),
+    "comptoir":   (900,  11,  1, 4,  1, "service", True),
+    "vitrine":    (1150, 13,  1, 9,  2, "vente", True),
+    "miroir":     (340,  2.0, 1, 8,  1, "confort", True),
+    "plante":     (150,  0.6, 0, 5,  1, "confort", True),
+    "canape":     (760,  3.0, 3, 7,  1, "confort", True),
+    "tapis":      (480,  0,   0, 10, 2, "confort", False),
+    "etagere":    (520,  6.0, 1, 5,  2, "vente", True),
+    "cadre":      (190,  0,   0, 4,  1, "confort", False),
+    "podium":     (1600, 19,  1, 14, 3, "service", True),
+    "tableRonde": (1250, 16,  2, 6,  3, "service", True),
 }
 COMBOS = [("vente", "confort", 0.22), ("vente", "service", 0.30),
           ("service", "confort", 0.18)]

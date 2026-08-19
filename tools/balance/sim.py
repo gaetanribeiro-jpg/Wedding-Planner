@@ -244,6 +244,12 @@ class Partie:
             for cle, x, y in self.meubles:
                 if x != gx + dx or y != gy + dy:
                     continue
+                # ⚠️ Un tapis et un cadre n'occupent pas le sol : cote JS,
+                # `meubleEn()` ne les rend jamais, donc ils ne forment PAS de
+                # combo. L'oracle Python leur accordait un bonus fantome — un
+                # effet mesure qui n'existe pas dans le jeu livre.
+                if not K.MEUBLES[cle][6]:
+                    continue
                 cat_b = K.MEUBLES[cle][5]
                 for a, b, v in K.COMBOS:
                     if {a, b} == {cat_a, cat_b} and (a, b) not in vus:
@@ -522,7 +528,7 @@ class Partie:
         if not cands:
             return
         def valeur(c):
-            p, gain, places, attrait, _, _ = K.MEUBLES[c]
+            p, gain, places, attrait = K.MEUBLES[c][:4]
             return (gain * places) / p if manque else attrait / p
         cle = max(cands, key=valeur)
         occupees = {(x, y) for _, x, y in self.meubles}

@@ -157,6 +157,14 @@ def main():
                 if abs(float(tup[i]) - float(m[champ])) > 1e-9:
                     ecarts.append((f"{cle_py}.{nom}.{champ}", tup[i],
                                    f"{cle_js}.{nom}.{champ}", m[champ]))
+            # ⚠️ `occupeLeSol` decide si le meuble compte comme voisin pour un
+            # combo. C'est un booleen, donc facile a oublier — et il a deja
+            # coute 20 % d'ecart entre les deux oracles.
+            sol_py = bool(tup[6]) if len(tup) > 6 else True
+            sol_js = not (m.get("sol") or m.get("mural"))
+            if sol_py != sol_js:
+                ecarts.append((f"{cle_py}.{nom}.occupeLeSol", sol_py,
+                               f"{cle_js}.{nom}.sol/mural", sol_js))
 
     print(f"\n{GRAS}Miroir config.py ↔ src/config.js{FIN}")
     if manquants:

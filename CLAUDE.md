@@ -317,7 +317,45 @@ s'ouvre en `file://`.
 | Taux de mariages ratés | **0,7 %** | 15 % | ❌ **le jeu n'a pas de dents** |
 | Salons gagnés | **0 sur 19** | — | ❌ **boss inatteignable** |
 
-### ⚠️ Les trois choses à régler, dans cet ordre
+### ⚠️ La parité n'est pas atteinte — à régler EN PREMIER
+
+Les deux oracles tombent d'accord sur ce qui est **intensif** et divergent de
+~21 % sur ce qui est **extensif** :
+
+| Métrique | Python | JS | Écart |
+|---|---|---|---|
+| note moyenne | 60,5 | 60,3 | **0,3 %** ✅ |
+| palier atteint | 5 | 5 | **0 %** ✅ |
+| taux de raté | 0,6 % | 0,7 % | 7,7 % |
+| jours | 8 680 | 6 813 | **21,5 %** ❌ |
+| contrats | 852 | 662 | **22,4 %** ❌ |
+| visiteurs | 368 613 | 293 313 | **20,4 %** ❌ |
+
+Les **règles** concordent (une note se calcule pareil des deux côtés) ; c'est
+la **trajectoire** qui diverge. Tant que ce n'est pas fermé, lis les chiffres
+absolus à ±20 % et ne t'en sers que pour comparer des variantes **au sein du
+même oracle**.
+
+**Déjà écarté** (vérifié, sans effet mesurable) :
+- le générateur — mulberry32 rend une suite identique au bit près ;
+- l'ordre de consommation d'`alea()` à la création d'un article, dans la
+  journée de boutique, chez les rivaux, au salon ;
+- un prospect expiré part chez un concurrent (manquait côté Python — corrigé,
+  n'a pas fermé l'écart) ;
+- `OUBLI_JOURS` sur le compteur de refus (manquait — corrigé, sans effet) ;
+- l'aménagement au jour 1 (le JS ne peut pas, faute de veille — symétrisé) ;
+- les tapis et cadres comptés à tort comme voisins de combo côté Python
+  (corrigé, sans effet mesurable : l'IA n'en achète presque pas).
+
+**Où chercher ensuite.** L'économie de boutique est un circuit qui
+s'auto-alimente — attrait → visiteurs → argent → meubles → attrait. Une
+différence minime et *persistante* s'y compose. Le plus prometteur est de
+comparer jour par jour, sur une graine, `attrait` / `recette` / `argent`
+plutôt que les totaux de fin : le harnais de trace existe déjà
+(`tools/` + une boucle de 400 jours), c'est ce qui a permis de trouver les
+quatre correctifs ci-dessus.
+
+### ⚠️ Les trois choses à régler ensuite, dans cet ordre
 
 1. **« 40–60 contrats » et « ~25 h » sont arithmétiquement incompatibles.**
    Un contrat dure 14 à 34 jours et on en mène 2 à 6 de front ; 50 contrats,
