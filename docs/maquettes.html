@@ -1,0 +1,989 @@
+<meta charset="utf-8">
+<title>Maquettes — Wedding Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --nuit:#2e2434; --nuit2:#3d3044; --bord:#584a63; --bord2:#6e5c78;
+  --creme:#f7efe4; --creme2:#e8dcc9;
+  --or:#d8a94a; --poudre:#e69aa6; --prune:#8c4f6b; --vert:#7fa87a;
+  --texte:#f4ecdf; --faible:#a89bb0;
+  --pixel:'Silkscreen',monospace; --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#221a29;color:var(--texte);font:13px/1.6 var(--mono);
+     padding:24px 16px 60px}
+.wrap{max-width:1120px;margin:0 auto}
+h1{font-family:var(--pixel);font-size:24px;margin:0 0 6px;color:var(--creme);letter-spacing:.04em}
+.sous{color:var(--faible);margin:0 0 6px;font-size:13px}
+.chapo{color:var(--faible);max-width:74ch;line-height:1.7;margin:0 0 28px}
+h2{font-family:var(--pixel);font-size:14px;color:var(--or);letter-spacing:.08em;
+   margin:38px 0 4px;padding-bottom:6px;border-bottom:2px solid var(--bord)}
+.note{color:var(--faible);font-size:12px;margin:0 0 14px;max-width:78ch;line-height:1.65}
+.note b{color:var(--creme2)}
+/* ---- chassis de jeu : bordures franches de 2 px, zero arrondi ---- */
+.jeu{border:2px solid var(--bord2);background:var(--nuit);display:inline-block;
+     max-width:100%;box-shadow:0 0 0 4px #1a1420}
+.barre{display:flex;align-items:center;gap:14px;padding:7px 10px;background:var(--nuit2);
+       border-bottom:2px solid var(--bord);font-size:11px;flex-wrap:wrap}
+.barre .titre{font-family:var(--pixel);color:var(--creme);letter-spacing:.06em}
+.res{display:flex;align-items:center;gap:5px}
+.res i{width:8px;height:8px;display:block}
+.res .lbl{color:var(--faible)}
+.res b{font-variant-numeric:tabular-nums}
+.vitesse{margin-left:auto;display:flex;gap:2px}
+.vitesse span{border:2px solid var(--bord);padding:2px 7px;font-size:10px;color:var(--faible)}
+.vitesse span[data-on]{border-color:var(--poudre);color:var(--poudre)}
+.scene{display:block;image-rendering:pixelated;width:100%;height:auto}
+.onglets{display:flex;background:var(--nuit2);border-top:2px solid var(--bord);flex-wrap:wrap}
+.onglets span{flex:1 1 0;text-align:center;padding:8px 4px;font-family:var(--pixel);
+  font-size:9px;letter-spacing:.06em;color:var(--faible);border-right:2px solid var(--bord)}
+.onglets span[data-on]{color:var(--poudre);background:var(--nuit);
+  box-shadow:inset 0 -3px 0 var(--poudre)}
+/* ---- panneaux ---- */
+.panneau{background:var(--nuit);border:2px solid var(--bord);padding:12px}
+.ligne{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #453a4e;font-size:12px}
+.ligne:last-child{border-bottom:0}
+.ligne b{color:var(--creme)}
+.etiq{font-family:var(--pixel);font-size:10px;color:var(--or);letter-spacing:.08em;
+      margin:2px 0 8px;display:block}
+.jauge{flex:1;height:9px;background:#221a29;border:1px solid var(--bord)}
+.jauge i{display:block;height:100%}
+.deux{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+@media(max-width:760px){.deux{grid-template-columns:1fr}}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.slot{border:2px solid var(--bord);padding:7px;font-size:10px;background:#271f30}
+.slot u{display:block;text-decoration:none;color:var(--faible);font-size:9px;
+        font-family:var(--pixel);letter-spacing:.05em;margin-bottom:3px}
+.slot b{color:var(--creme);font-size:11px}
+.slot[data-vide]{border-style:dashed;color:var(--faible)}
+.slot[data-vide] b{color:var(--faible)}
+.bandeau{background:var(--prune);border:2px solid var(--or);padding:9px 12px;
+  font-family:var(--pixel);font-size:12px;color:var(--creme);letter-spacing:.06em;margin-bottom:12px}
+.score{font-family:var(--pixel);font-size:34px;color:var(--or);line-height:1}
+.galerie{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;
+  background:var(--nuit);border:2px solid var(--bord);padding:16px}
+.item{text-align:center;width:104px}
+.item canvas{image-rendering:pixelated;display:block;margin:0 auto}
+.item span{display:block;font-size:9px;color:var(--faible);margin-top:5px;font-family:var(--pixel);letter-spacing:.04em}
+.classement .ligne b:first-child{min-width:120px}
+.pastille{width:9px;height:9px;display:inline-block}
+</style>
+
+<div class="wrap">
+<h1>Wedding Planner — maquettes</h1>
+<p class="sous">Tout ce qui suit est <b>généré par le code</b>, pas dessiné : mêmes primitives qu'Aincrad Village.</p>
+<p class="chapo">Une recette de cinq lignes par personnage, le contour et l'ombrage dérivés du
+remplissage, la projection isométrique 2:1, le seuillage d'alpha qui rend les diagonales
+en escalier. Aucune image n'est chargée. C'est la démonstration en même temps que la maquette :
+si ça marche ici, le moteur transfère.</p>
+
+<h2>1 · LA BOUTIQUE — la vue qu'on aménage</h2>
+<p class="note">L'équivalent exact de la ville : grille isométrique, tri en profondeur sur
+<b>gx+gy</b>, caméra, et l'économie par fréquentation. Les clients qui déambulent sont
+<b>de vrais clients</b> du fichier, pas des figurants — et leurs bulles disent d'où vient
+l'argent. Chaque meuble a un gain par visiteur et un nombre de places.</p>
+<div class="jeu" id="j1"></div>
+
+<h2>2 · LE DOSSIER — là où le jeu se joue vraiment</h2>
+<p class="note">Le cœur du système : chaque couple a un <b>profil de goûts</b>, donc la plus
+belle robe n'est pas la bonne robe. C'est <code>scorePourHeros()</code> d'Aincrad, transposé —
+un objet est noté <b>pour ce client-là</b>. Six emplacements à remplir avec ton stock,
+un budget à ne pas crever, une date qui bloque les prestataires.</p>
+<div class="deux" id="j2"></div>
+
+<h2>3 · LE JOUR J — le moment fort</h2>
+<p class="note">La deuxième moitié du moteur : une vue de côté, comme l'arène. Le ciel est la
+seule entorse assumée au « zéro dégradé » ; les collines, elles, sont <b>en marches</b>.
+Guirlandes, pétales et invités assis sont procéduraux. C'est ici que le score tombe —
+et un score, ça se met en scène, sinon c'est un tableur.</p>
+<div class="jeu" id="j3"></div>
+
+<h2>4 · LE SALON DU MARIAGE — le rendez-vous annuel</h2>
+<p class="note">L'équivalent du raid : un thème tiré, ton stand contre ceux des concurrents,
+un jury qui circule. Tout ce que tu as accumulé passe un examen d'un coup.</p>
+<div class="jeu" id="j4"></div>
+
+<h2>5 · LA GARDE-ROBE — cinq silhouettes qui se lisent sans étiquette</h2>
+<p class="note">C'est le test qui décide de tout : si une princesse et une sirène se
+ressemblent à cette taille, tout le système de goûts s'effondre. Chacune est une fonction
+de quelques lignes, pas un dessin.</p>
+<div class="galerie" id="g1"></div>
+
+<h2>6 · LES GENS</h2>
+<p class="note">Mariés, invités, prestataires, et toi. Même générateur, recettes différentes.
+La peau et les cheveux viennent d'un hachage du nom : deux invités ne sont jamais clones.</p>
+<div class="galerie" id="g2"></div>
+</div>
+<script>
+/* ============================================================
+   PARTIE 1 — primitives de pixel art (meme methode qu'Aincrad)
+   On dessine dans une grille de MARQUEURS, puis on DERIVE le
+   contour et l'ombrage du remplissage. Rien n'est peint a la main.
+   ============================================================ */
+function grille(L, H, vide){ const g = Array.from({length:H}, () => Array(L).fill(vide || ".")); g.L = L; g.H = H; return g; }
+const dans = (g,x,y) => x>=0 && y>=0 && x<g.L && y<g.H;
+function poser(g,x,y,m){ x|=0; y|=0; if(dans(g,x,y)) g[y][x] = m; }
+function sym(g,x,y,m){ poser(g,x,y,m); poser(g,g.L-1-x,y,m); }
+function rect(g,x,y,w,h,m){ for(let j=y;j<y+h;j++) for(let i=x;i<x+w;i++) poser(g,i,j,m); }
+function bande(g,demi,y,h,m){ const axe = Math.floor((g.L-1)/2);
+  for(let j=y;j<y+h;j++) for(let i=0;i<demi;i++) sym(g,axe-i,j,m); }
+function ovale(g,cx,cy,rx,ry,m){
+  for(let j=Math.floor(cy-ry); j<=Math.ceil(cy+ry); j++)
+    for(let i=Math.floor(cx-rx); i<=Math.ceil(cx+rx); i++){
+      const dx=(i-cx)/rx, dy=(j-cy)/ry; if(dx*dx+dy*dy<=1) poser(g,i,j,m); } }
+function ligne(g,x0,y0,x1,y1,m){ const n=Math.max(Math.abs(x1-x0),Math.abs(y1-y0));
+  for(let i=0;i<=n;i++) poser(g, x0+(x1-x0)*i/n, y0+(y1-y0)*i/n, m); }
+/* trapeze symetrique : demi-largeur du haut -> du bas. La forme de base d'une jupe. */
+function jupe(g, yHaut, yBas, demiHaut, demiBas, m){
+  for(let y=yHaut; y<=yBas; y++){
+    const t = (y-yHaut)/Math.max(1,(yBas-yHaut));
+    const d = demiHaut + (demiBas-demiHaut)*t;
+    for(let i=0;i<d;i++) sym(g, Math.floor((g.L-1)/2)-i, y, m); } }
+function cerner(g, vide, contour){
+  const o = g.map(l=>l.slice()); o.L=g.L; o.H=g.H;
+  for(let y=0;y<g.H;y++) for(let x=0;x<g.L;x++){
+    if(g[y][x]!==vide) continue;
+    if([[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>dans(g,x+dx,y+dy)&&g[y+dy][x+dx]!==vide)) o[y][x]=contour; }
+  return o; }
+function ombrer(g, ombreDe, vide, contour){
+  const o = g.map(l=>l.slice()); o.L=g.L; o.H=g.H;
+  for(let y=0;y<g.H;y++) for(let x=0;x<g.L;x++){
+    const m=g[y][x]; if(!ombreDe[m]) continue;
+    const dr = dans(g,x+1,y)?g[y][x+1]:vide, ba = dans(g,x,y+1)?g[y+1][x]:vide;
+    if(dr===vide||dr===contour||ba===vide||ba===contour) o[y][x]=ombreDe[m]; }
+  return o; }
+function rendre(g, pal, vide){
+  const cv=document.createElement("canvas"); cv.width=g.L; cv.height=g.H;
+  const c=cv.getContext("2d");
+  for(let y=0;y<g.H;y++) for(let x=0;x<g.L;x++){
+    const m=g[y][x]; if(m===(vide||".")) continue;
+    c.fillStyle = pal[m] || "#ff00ff"; c.fillRect(x,y,1,1); }
+  return cv; }
+function teinter(hex,k){ const n=parseInt(hex.slice(1),16);
+  const f=c=>Math.max(0,Math.min(255,Math.round(k>0?c+(255-c)*k:c*(1+k))));
+  return `#${((f(n>>16&255)<<16)|(f(n>>8&255)<<8)|f(n&255)).toString(16).padStart(6,"0")}`; }
+function melanger(a,b,k){ const na=parseInt(a.slice(1),16), nb=parseInt(b.slice(1),16);
+  const f=d=>Math.round(((na>>d&255)*(1-k)+(nb>>d&255)*k));
+  return `#${((f(16)<<16)|(f(8)<<8)|f(0)).toString(16).padStart(6,"0")}`; }
+function hachage(s){ let h=0x811c9dc5; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,0x01000193)>>>0; } return h; }
+function pepin(h){ let e=h>>>0; return ()=>{ e^=e<<13;e>>>=0; e^=e>>17; e^=e<<5;e>>>=0; return e/4294967296; }; }
+
+/* Projection isometrique 2:1, identique a iso.js */
+const TL = 32, TH = 16;
+const versEcran = (gx,gy) => ({ x:(gx-gy)*TL/2, y:(gx+gy)*TH/2 });
+/* ============================================================
+   PARTIE 2 — CHARTE. Rien a voir avec le HUD SAO : on quitte
+   l'ardoise nuit + cyan pour de l'aubergine, du creme et du
+   poudre. Zero arrondi, zero degrade, bordures franches : la
+   regle tient, les jetons changent.
+   ============================================================ */
+const C = {
+  nuit:"#2e2434", nuit2:"#3d3044", bord:"#584a63",
+  creme:"#f7efe4", creme2:"#e8dcc9",
+  or:"#d8a94a", poudre:"#e69aa6", prune:"#8c4f6b", vert:"#7fa87a",
+  texte:"#f4ecdf", faible:"#a89bb0",
+};
+
+/* ------------------------------------------------------------
+   PARTIE 3 — PERSONNAGES. Meme methode que villageois.js : une
+   recette de quelques lignes, contour et ombrage DERIVES.
+   Une tete pour trois corps, le buste dans la largeur de la tete.
+   ------------------------------------------------------------ */
+const V=".", O="o", OE="e";
+const PE="S", PEo="s", CH="H", CHo="h", TI="A", TIo="a", SE="B", SEo="b";
+const DE="D", DEo="d", ME="M", MEo="m", CU="K", CUo="k", JA="N", JAo="n";
+const AC="R", VO="W";                       // accent et voile : jamais ombres
+const OMB = {[PE]:PEo,[CH]:CHo,[TI]:TIo,[SE]:SEo,[DE]:DEo,[ME]:MEo,[CU]:CUo,[JA]:JAo};
+
+const PL=20, PH=28;
+const CX=9.5, TCY=6, TRX=3.4, TRY=3.2, YCOU=10, YTOR=11, YTAILLE=16, YSOL=26;
+
+/* Les cinq silhouettes de robe. C'est LA chose qui doit se lire sans
+   etiquette : si une princesse et une sirene se ressemblent, tout le
+   systeme de gouts du jeu s'effondre.
+
+   ⚠️ Premiere version ratee, et la lecon vaut d'etre gardee : a 20 px de
+   large, une difference de deux pixels n'existe pas. Il faut EXAGERER —
+   la princesse touche les bords de la grille, la sirene est franchement
+   moulante puis franchement evasee, et chacune porte une couture de
+   taille dans un ton contraste. Sans cette couture, une robe ivoire est
+   un aplat blanc : l'ombrage derive ne mord pas sur du presque-blanc. */
+function couture(g, y, demi, m){ for(let i=0;i<demi;i++) sym(g, 9-i, y, m); }
+/* Plis verticaux : deux colonnes assombries. Une jupe en aplat uni se lit
+   comme un cone de papier, pas comme du tissu. */
+function plis(g, yh, yb, cols, m){ for(let y=yh;y<=yb;y++) for(const x of cols) sym(g,x,y,m); }
+
+const ROBES = {
+  princesse:{ txt:"Princesse", buste:"bustier", jupe:(g,m,d)=>{
+    // Taille TRES cintree puis cloche pleine largeur : le contraste entre les
+    // deux est tout ce qui fait la princesse.
+    jupe(g,YTAILLE,YTAILLE+2,2,5,m);
+    jupe(g,YTAILLE+2,YSOL,5,10,m);
+    plis(g,YTAILLE+4,YSOL-1,[4,6],TIo);
+    couture(g,YTAILLE,2,d);
+    couture(g,YSOL-1,10,d);
+  }},
+  sirene:{ txt:"Sirène", buste:"bustier", jupe:(g,m,d)=>{
+    // Moulante sur DEUX pixels de demi-largeur : au-dessus de trois, ca ne se
+    // distingue plus d'une robe droite. La rupture doit etre franche.
+    jupe(g,YTAILLE,YSOL-4,2,2,m);
+    jupe(g,YSOL-3,YSOL,3,10,m);
+    plis(g,YSOL-2,YSOL,[5,7],TIo);
+    couture(g,YTAILLE,2,d); couture(g,YSOL-4,2,TIo);
+  }},
+  boheme:{ txt:"Bohème", buste:"manches", jupe:(g,m,d)=>{
+    jupe(g,YTAILLE-1,YSOL,3,6,m);
+    plis(g,YTAILLE+1,YSOL-1,[7],TIo);
+    couture(g,YTAILLE-1,3,d);                  // taille marquee par une ceinture
+    couture(g,YSOL,6,d); couture(g,YSOL-1,6,d);// ourlet de dentelle
+    sym(g,4,YSOL,d); sym(g,3,YSOL,d);
+  }},
+  empire:{ txt:"Empire", buste:"bretelles", jupe:(g,m,d)=>{
+    // Colonne lisse a taille tres haute. Pas de plis : les rayures verticales
+    // la faisaient lire comme un tonneau, et surtout comme une boheme.
+    jupe(g,YTAILLE-4,YSOL,3,6,m);
+    couture(g,YTAILLE-4,3,d); couture(g,YTAILLE-3,3,d);
+    plis(g,YTAILLE,YSOL-1,[6],TIo);
+  }},
+  courte:{ txt:"Courte", buste:"manches", jupe:(g,m,d)=>{
+    jupe(g,YTAILLE,YSOL-6,3,6,m);
+    couture(g,YTAILLE,3,d); couture(g,YSOL-6,6,d);
+    // Des jambes SOUS la jupe : sans elles la robe courte se lit comme une
+    // robe longue coupee, et le personnage est posé dans un seau.
+    for(let y=YSOL-5;y<YSOL;y++){ rect(g,7,y,2,1,JA); rect(g,11,y,2,1,JA); }
+    rect(g,7,YSOL,2,1,CU); rect(g,11,YSOL,2,1,CU);
+  }},
+};
+
+function buste(g, forme, tissu, dentelle){
+  bande(g,4,YTOR,1,tissu);                       // epaules
+  bande(g,3,YTOR+1,4,tissu);                     // buste
+  if(forme==="bustier"){
+    // Epaules NUES : c'est ce qui distingue un bustier d'une robe a manches
+    // a cette taille — pas le decollete, qui fait deux pixels.
+    bande(g,4,YTOR,1,PE);
+    for(let y=YTOR+1;y<=YTOR+2;y++) sym(g,6,y,PE);
+    bande(g,3,YTOR+1,1,dentelle);
+  }else if(forme==="manches"){
+    for(let y=YTOR+1;y<=YTOR+4;y++) sym(g,5,y,tissu);
+    sym(g,5,YTOR+5,PE);                          // mains
+  }else if(forme==="bretelles"){
+    bande(g,4,YTOR,1,PE);
+    sym(g,7,YTOR,tissu); sym(g,8,YTOR,tissu);
+    bande(g,3,YTOR+2,1,dentelle);
+  }
+  if(forme!=="manches"){ for(let y=YTOR+2;y<=YTOR+4;y++) sym(g,5,y,PE); sym(g,5,YTOR+5,PE); }
+}
+
+function tete(g, dos, coiffe, pose){
+  rect(g,8,YCOU,4,1,PE);
+  ovale(g,CX,TCY,TRX,TRY,PE);
+  ovale(g,CX,TCY-.6,TRX+.3,TRY+.3,CH);
+  if(!dos){
+    ovale(g,CX,TCY+.8,TRX-.7,TRY-.8,PE);
+    if(pose==="joie"){ poser(g,7,TCY+1,OE); poser(g,12,TCY+1,OE);
+                       rect(g,9,TCY+3,2,1,OE); }
+    else { poser(g,7,TCY+1,OE); poser(g,12,TCY+1,OE); }
+  }
+  if(coiffe==="chignon"){ bande(g,2,TCY-5,2,CH); sym(g,7,TCY-3,CH); }
+  else if(coiffe==="long"){ for(let y=TCY;y<=YTOR+3;y++) sym(g,6,y,CH); sym(g,7,YTOR+4,CH); }
+  else if(coiffe==="court"){ bande(g,4,TCY-3,1,CH); }
+  else if(coiffe==="boucles"){ for(const [x,y] of [[5,TCY],[5,TCY+1],[6,TCY+2],[4,TCY-1]]) sym(g,x,y,CH); }
+  else if(coiffe==="toque"){ bande(g,4,TCY-3,1,DE); bande(g,3,TCY-6,3,DE); }
+  else if(coiffe==="casque"){
+    bande(g,4,TCY-4,1,ME);                       // arceau
+    sym(g,6,TCY-3,ME);
+    for(let y=TCY-2;y<=TCY+1;y++){ sym(g,5,y,ME); sym(g,6,y,ME); }   // ecouteurs
+    for(let y=TCY-1;y<=TCY;y++) sym(g,5,y,AC);   // coussinets colores
+  }
+}
+
+/* Le VOILE est en marqueur non ombre : un aplat qui ne s'assombrit sur aucun
+   bord se lit comme du tulle.
+
+   ⚠️ Il se dessine DERRIERE le corps, pas par-dessus. Premiere version : un
+   ovale pose sur la tete — la mariee n'avait plus de visage et, robe ivoire
+   sous voile ivoire, elle sortait en tache blanche. Un voile, ce qu'on en
+   voit, c'est ce qui DEPASSE de la silhouette. */
+function voileArriere(g){
+  for(let y=TCY-1;y<=YTAILLE+6;y++){ sym(g,5,y,VO); sym(g,4,y,VO); }
+  for(let y=YTAILLE+4;y<=YTAILLE+7;y++){ sym(g,3,y,VO); }
+  bande(g,7,TCY-4,1,VO);
+}
+/* La couronne, elle, se pose devant : c'est ce qui dit « mariee » de face. */
+function couronne(g){
+  // Un diademe TIENT DANS LA LARGEUR DU CRANE. Deborder d'un pixel de chaque
+  // cote et il se lit comme une helice posee sur la tete.
+  bande(g,4,TCY-3,1,AC);
+  poser(g,7,TCY-4,AC); poser(g,12,TCY-4,AC);
+  poser(g,9,TCY-4,AC); poser(g,10,TCY-4,AC);
+}
+
+function accessoire(g, a){
+  if(a==="bouquet"){ ovale(g,15,YTOR+4,2.2,2,AC); poser(g,15,YTOR+6,CU); poser(g,15,YTOR+7,CU);
+                     poser(g,14,YTOR+3,DE); poser(g,16,YTOR+5,DE); }
+  else if(a==="presse"){ rect(g,13,YTOR+3,5,6,DE); rect(g,13,YTOR+3,5,1,CU);
+                         for(let y=YTOR+5;y<=YTOR+7;y++) rect(g,14,y,3,1,CUo);
+                         poser(g,13,YTOR+5,PE); }
+  else if(a==="gerbe"){ for(const [x,y] of [[14,YTOR+1],[16,YTOR+2],[15,YTOR+3],[17,YTOR+4]]) { poser(g,x,y,AC); poser(g,x+1,y+1,AC); }
+                        ligne(g,15,YTOR+5,16,YTOR+8,SE); }
+  else if(a==="plateau"){ rect(g,14,YTOR+3,5,1,ME); rect(g,15,YTOR+2,3,1,DE);
+                          poser(g,15,YTOR+1,AC); poser(g,17,YTOR+1,AC);
+                          poser(g,13,YTOR+4,PE); }
+  else if(a==="noeud"){ sym(g,8,YTOR+1,AC); rect(g,9,YTOR+1,2,1,AC); }
+}
+
+/**
+ * Un personnage. `r` : { role, tissu, second, peau, chev, coiffe, robe,
+ * voile, acc, pose }. Le role decide le bas du corps.
+ */
+function perso(r){
+  let g = grille(PL,PH,V);
+  const pal = {
+    [PE]:r.peau, [PEo]:teinter(r.peau,-.20),
+    [CH]:r.chev, [CHo]:teinter(r.chev,-.26),
+    [TI]:r.tissu, [TIo]:teinter(r.tissu,-.24),
+    [SE]:r.second, [SEo]:teinter(r.second,-.24),
+    [DE]:r.dentelle||"#fdf7ee", [DEo]:teinter(r.dentelle||"#fdf7ee",-.14),
+    [ME]:"#c6ccda", [MEo]:"#858da0",
+    [CU]:"#7a5a3a", [CUo]:"#5a4029",
+    [JA]:r.jambe||"#3a3040", [JAo]:teinter(r.jambe||"#3a3040",-.28),
+    [AC]:r.accent||C.poudre, [VO]:r.tulle||"#fbf6f0",
+    [O]:"#2b1f2b", [OE]:"#2b1f2b",
+  };
+  // Le voile est pose AVANT tout le reste : le corps l'ecrase, et il n'en
+  // reste que ce qui deborde de la silhouette. C'est ca, un voile.
+  if(r.voile) voileArriere(g);
+  if(r.robe){
+    ROBES[r.robe].jupe(g, TI, DE);
+    buste(g, ROBES[r.robe].buste, TI, DE);
+  }else{
+    // Pantalon : deux jambes separees par deux pixels de vide, sinon le
+    // personnage repose sur un pilier.
+    for(let y=YTAILLE;y<YSOL;y++){ rect(g,7,y,2,1,JA); rect(g,11,y,2,1,JA); }
+    rect(g,7,YSOL,2,1,CU); rect(g,11,YSOL,2,1,CU);
+    bande(g,4,YTOR,1,TI); bande(g,3,YTOR+1,5,TI);
+    for(let y=YTOR+1;y<=YTOR+4;y++) sym(g,5,y,TI);
+    sym(g,5,YTOR+5,PE);
+    rect(g,9,YTOR+1,2,4,DE);                     // chemise
+    bande(g,3,YTAILLE-1,1,CU);                   // ceinture
+  }
+  tete(g, false, r.coiffe, r.pose);
+  if(r.voile) couronne(g);
+  if(r.acc) accessoire(g, r.acc);
+  g = ombrer(g, OMB, V, O);
+  g = cerner(g, V, O);
+  return rendre(g, pal, V);
+}
+/* ============================================================
+   PARTIE 4 — MOBILIER ISOMETRIQUE. Meme lecon que batisseur.js :
+   on dessine a la resolution NATIVE puis on seuille l'alpha.
+   Sans ca les diagonales sortent floues et le resultat fait
+   low-poly plat, pas pixel art.
+   ============================================================ */
+function pixeliser(ctx,w,h){
+  const d = ctx.getImageData(0,0,w,h), p = d.data;
+  for(let i=3;i<p.length;i+=4) p[i] = p[i] < 128 ? 0 : 255;
+  ctx.putImageData(d,0,0);
+}
+function dessus(ctx,cx,cy,l,h,col){
+  ctx.fillStyle=col; ctx.beginPath();
+  ctx.moveTo(cx,cy-h/2); ctx.lineTo(cx+l/2,cy); ctx.lineTo(cx,cy+h/2); ctx.lineTo(cx-l/2,cy);
+  ctx.closePath(); ctx.fill();
+}
+/* Les trois faces d'un volume viennent d'UNE teinte : trois couleurs
+   independantes donnent trois plaques posees cote a cote, pas un solide. */
+function volume(ctx,cx,base,l,h,haut,col){
+  const ga=teinter(col,-.30), dr=teinter(col,-.13);
+  ctx.fillStyle=ga; ctx.beginPath();
+  ctx.moveTo(cx-l/2,base-h/2); ctx.lineTo(cx,base); ctx.lineTo(cx,base-haut); ctx.lineTo(cx-l/2,base-h/2-haut);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle=dr; ctx.beginPath();
+  ctx.moveTo(cx+l/2,base-h/2); ctx.lineTo(cx,base); ctx.lineTo(cx,base-haut); ctx.lineTo(cx+l/2,base-h/2-haut);
+  ctx.closePath(); ctx.fill();
+  dessus(ctx,cx,base-h/2-haut,l,h,col);
+}
+function cerne(ctx,w,h,col){
+  const d=ctx.getImageData(0,0,w,h), p=d.data, out=ctx.createImageData(d);
+  out.data.set(p);
+  const a=(x,y)=> (x<0||y<0||x>=w||y>=h) ? 0 : p[(y*w+x)*4+3];
+  const n=parseInt(col.slice(1),16);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    if(a(x,y)) continue;
+    if(a(x+1,y)||a(x-1,y)||a(x,y+1)||a(x,y-1)){
+      const i=(y*w+x)*4;
+      out.data[i]=n>>16&255; out.data[i+1]=n>>8&255; out.data[i+2]=n&255; out.data[i+3]=255; }
+  }
+  ctx.putImageData(out,0,0);
+}
+/** Fabrique un meuble : on dessine, on seuille, on cerne. */
+function meuble(w,h,f){
+  const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+  const c=cv.getContext("2d");
+  f(c,w,h);
+  pixeliser(c,w,h); cerne(c,w,h,"#3a2b3a");
+  return cv;
+}
+
+const BOIS="#a8753f", BOIS2="#8a5c30", MARBRE="#efe6d8", DORE="#d8a94a";
+
+const MEUBLES = {
+  /* Un portant, c'est deux montants, une barre et des robes qui PENDENT.
+     Sans les cintres qui depassent, ca se lit comme une clotûre. */
+  portant:(couleurs)=>meuble(46,50,(c)=>{
+    c.fillStyle=teinter(DORE,-.25); c.fillRect(7,20,2,26); c.fillRect(37,20,2,26);
+    c.fillStyle=DORE; c.fillRect(7,18,32,3);
+    couleurs.forEach((col,i)=>{
+      const x = 10 + i*6;
+      c.fillStyle=teinter(col,-.18); c.fillRect(x,21,1,3);
+      c.fillStyle=col;               c.fillRect(x-2,24,5,12);
+      c.fillStyle=teinter(col,.12);  c.fillRect(x-3,32,7,8);
+      c.fillStyle=teinter(col,-.22); c.fillRect(x+2,24,1,16);
+    });
+    c.fillStyle="#5a4a52"; c.fillRect(5,46,4,2); c.fillRect(37,46,4,2);
+  }),
+  mannequin:(col,forme)=>meuble(34,52,(c)=>{
+    c.fillStyle="#6b5a63"; c.fillRect(16,44,2,6); c.fillRect(12,50,10,2);
+    const g = grille(20,28,V);
+    ROBES[forme].jupe(g,TI); buste(g,ROBES[forme].buste,TI,DE);
+    const pal={[TI]:col,[TIo]:teinter(col,-.22),[DE]:"#fdf7ee",[DEo]:"#e6dcd0",
+               [PE]:"#d8c8bc",[PEo]:"#b8a89c",[O]:"#3a2b3a"};
+    const s = rendre(cerner(ombrer(g,OMB,V,O),V,O),pal,V);
+    c.imageSmoothingEnabled=false;
+    c.drawImage(s,7,17,20,28);
+    c.fillStyle="#c9b8c0"; c.fillRect(15,14,4,4);        // col du buste
+  }),
+  comptoir:()=>meuble(60,38,(c)=>{
+    volume(c,30,32,48,24,13,BOIS);
+    dessus(c,30,32-12-13,48,24,"#ddd0be");
+    c.fillStyle=teinter(DORE,-.1); c.fillRect(10,22,40,1);
+    // Registre et petit bouquet : un comptoir vide se lit comme un bloc.
+    c.fillStyle="#f7efe4"; c.fillRect(22,8,10,4);
+    c.fillStyle=C.poudre; c.fillRect(38,5,4,4); c.fillStyle="#6f9a63"; c.fillRect(39,9,2,3);
+  }),
+  vitrine:()=>meuble(46,40,(c)=>{
+    volume(c,23,34,36,18,7,BOIS2);
+    c.globalAlpha=.35; volume(c,23,34-7,36,18,11,"#dceef2"); c.globalAlpha=1;
+    c.fillStyle=DORE; c.fillRect(8,17,30,1);
+    // Des bijoux dedans, sinon c'est une caisse vitree.
+    for(const [x,y] of [[14,14],[22,12],[30,14]]){ c.fillStyle=DORE; c.fillRect(x,y,3,2);
+      c.fillStyle="#f2e4ea"; c.fillRect(x+1,y,1,1); }
+  }),
+  miroir:()=>meuble(30,54,(c)=>{
+    c.fillStyle=DORE; c.fillRect(4,2,22,42);
+    c.fillStyle="#cfd8e0"; c.fillRect(7,5,16,36);
+    c.fillStyle="#e8eef2"; c.fillRect(9,7,4,32);
+    c.fillStyle=teinter(DORE,-.25); c.fillRect(11,44,8,8);
+  }),
+  plante:()=>meuble(28,40,(c)=>{
+    c.fillStyle="#b4785a"; c.fillRect(8,28,12,10);
+    c.fillStyle="#94604a"; c.fillRect(8,28,12,2);
+    for(const [x,y,r] of [[14,18,8],[9,22,6],[19,22,6],[14,11,6]]){
+      c.fillStyle= r>6 ? "#5f8f57" : "#6fa564";
+      c.beginPath(); c.ellipse(x,y,r,r*.85,0,0,7); c.fill(); }
+  }),
+  canape:(col)=>meuble(56,44,(c)=>{
+    volume(c,28,38,44,20,7,teinter(col,-.18));      // socle
+    volume(c,28,31,44,20,5,teinter(col,.06));       // assise
+    // Dossier : un panneau VERTICAL en fond, c'est lui qui fait canape
+    // plutot que banquette. Sans lui on lit un lit.
+    c.fillStyle=col;          c.fillRect(6,8,44,14);
+    c.fillStyle=teinter(col,.14); c.fillRect(8,10,40,4);
+    c.fillStyle=teinter(col,-.22); c.fillRect(6,21,44,2);
+    c.fillStyle=teinter(col,.10); c.fillRect(2,14,6,12); c.fillRect(48,14,6,12);
+  }),
+  tapis:(col)=>meuble(96,50,(c)=>{
+    dessus(c,48,25,92,44,col);
+    dessus(c,48,25,72,34,teinter(col,.14));
+    dessus(c,48,25,44,20,col);
+  }),
+  arche:()=>meuble(90,86,(c)=>{
+    c.strokeStyle="#8a6a4a"; c.lineWidth=4;
+    c.beginPath(); c.moveTo(16,84); c.lineTo(16,34);
+    c.quadraticCurveTo(45,4,74,34); c.lineTo(74,84); c.stroke();
+    const r=pepin(hachage("arche"));
+    for(let i=0;i<80;i++){
+      const t=i/79, ang=Math.PI*(1-t);
+      let x,y;
+      if(t<.22){ x=16; y=84-(t/.22)*50; }
+      else if(t>.78){ x=74; y=34+((t-.78)/.22)*50; }
+      else { const u=(t-.22)/.56; x=16+58*u; y=34-30*Math.sin(Math.PI*u); }
+      const q=r();
+      c.fillStyle = q<.42 ? "#f5eef0" : q<.62 ? "#e8a8b4" : q<.82 ? "#6f9a63" : "#f0d8a0";
+      const s = q<.62 ? 4 : 3;
+      c.fillRect(x-s/2+(r()-.5)*6, y-s/2+(r()-.5)*6, s, s);
+    }
+  }),
+  chaise:(col)=>meuble(22,34,(c)=>{
+    volume(c,11,26,16,9,7,col);
+    c.fillStyle=teinter(col,-.12); c.fillRect(4,8,14,12);
+    c.fillStyle="#f7eff2"; c.fillRect(6,10,10,3);         // noeud de dossier
+    c.fillStyle=C.poudre; c.fillRect(9,12,4,4);
+  }),
+  tableRonde:()=>meuble(58,40,(c)=>{
+    volume(c,29,34,44,22,10,"#f2ead8");
+    dessus(c,29,34-11-10,44,22,"#fbf5ea");
+    c.fillStyle=C.poudre; c.beginPath(); c.ellipse(29,12,5,4,0,0,7); c.fill();
+    c.fillStyle="#6f9a63"; c.fillRect(26,9,2,3); c.fillRect(31,10,2,3);
+    c.fillStyle=DORE; c.fillRect(18,14,2,4); c.fillRect(39,14,2,4);
+  }),
+  /* Un stand, c'est un PANNEAU qui se dresse et une table basse devant. La
+     premiere version etait un bloc de 96x84 : a cote d'un personnage de 28 px
+     de haut, ca ne se lisait pas comme un stand mais comme un lit. */
+  stand:(col)=>meuble(62,62,(c)=>{
+    c.fillStyle=teinter(col,-.30); c.fillRect(4,6,54,30);   // panneau
+    c.fillStyle=col;               c.fillRect(6,8,50,26);
+    c.fillStyle="#f7efe4";         c.fillRect(10,13,42,13); // banderole vierge
+    c.fillStyle=DORE;              c.fillRect(3,3,56,4);
+    for(let i=0;i<4;i++){ c.fillStyle=i%2?C.poudre:DORE; c.fillRect(9+i*13,29,6,2); }
+    c.fillStyle=teinter(col,-.42); c.fillRect(8,36,4,10); c.fillRect(50,36,4,10);
+    volume(c,31,58,40,18,9,"#c9b8a8");                     // table de presentation
+    c.fillStyle=C.poudre; c.fillRect(22,40,6,4); c.fillStyle="#6f9a63"; c.fillRect(36,41,5,3);
+  }),
+  cadre:(col)=>meuble(20,24,(c)=>{
+    c.fillStyle=DORE; c.fillRect(0,0,20,24);
+    c.fillStyle=col;  c.fillRect(3,3,14,18);
+    c.fillStyle="#f7efe4"; c.fillRect(6,7,8,10);
+    c.fillStyle=C.poudre; c.fillRect(8,9,4,6);
+  }),
+  etagere:()=>meuble(46,26,(c)=>{
+    c.fillStyle=BOIS2; c.fillRect(0,20,46,4);
+    // Boites a chapeaux : cercle + ruban.
+    for(const [x,col] of [[6,"#e8dcc9"],[19,C.poudre],[32,"#c9b8d0"]]){
+      c.fillStyle=col; c.fillRect(x,6,12,14);
+      c.fillStyle=teinter(col,-.18); c.fillRect(x,6,12,3);
+      c.fillStyle=DORE; c.fillRect(x+5,6,2,14); }
+  }),
+  podium:()=>meuble(44,30,(c)=>{
+    volume(c,22,26,34,16,7,C.prune);
+    dessus(c,22,26-8-7,34,16,teinter(C.prune,.20));
+    c.fillStyle=DORE; c.fillRect(6,14,32,1);
+    c.fillStyle=DORE; c.fillRect(19,2,6,8); c.fillRect(17,9,10,2);  // trophee
+  }),
+};
+/* ============================================================
+   PARTIE 5 — SCENES. Deux rendus, comme Aincrad : une vue
+   ISOMETRIQUE pour le lieu qu'on amenage, une vue de COTE pour
+   le moment fort. C'est exactement le couple ville / arene, et
+   c'est ce qui prouve que les deux moities du moteur tiennent.
+   ============================================================ */
+function toile(w,h){ const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+  const c=cv.getContext("2d"); c.imageSmoothingEnabled=false; return {cv,c}; }
+function poserSprite(c,sp,x,y){ c.drawImage(sp, Math.round(x-sp.width/2), Math.round(y-sp.height)); }
+
+/* ---------------------------------------------------- LA BOUTIQUE */
+function sceneBoutique(){
+  const W=420,H=228, {cv,c}=toile(W,H);
+  const GX=9, GY=7, ox=W/2, oy=70;
+  const e=(gx,gy)=>({x:ox+(gx-gy)*TL/2, y:oy+(gx+gy)*TH/2});
+  c.fillStyle="#2e2434"; c.fillRect(0,0,W,H);
+
+  const mur=(p,q,haut,col)=>{ c.fillStyle=col; c.beginPath();
+    c.moveTo(p.x,p.y); c.lineTo(q.x,q.y); c.lineTo(q.x,q.y-haut); c.lineTo(p.x,p.y-haut);
+    c.closePath(); c.fill(); };
+  for(let i=0;i<GY;i++) mur(e(-1,i),e(-1,i+1),58,"#6b5566");
+  for(let i=0;i<GX;i++) mur(e(i,-1),e(i+1,-1),58,"#7d6478");
+  // Papier peint raye : un aplat uni sur un tiers d'ecran fait carton.
+  c.fillStyle="rgba(255,255,255,.055)";
+  for(let i=0;i<GX*3;i++){ const p=e(i/3,-1); c.fillRect(p.x,p.y-58,1,58); }
+  for(let i=0;i<GY*3;i++){ const p=e(-1,i/3); c.fillRect(p.x,p.y-58,1,58); }
+  // Plinthe doree : sans elle le mur et le sol se touchent en deux aplats
+  // voisins et la piece se lit comme un origami.
+  c.fillStyle=DORE;
+  for(let i=0;i<GY;i++) mur(e(-1,i),e(-1,i+1),3,DORE);
+  for(let i=0;i<GX;i++) mur(e(i,-1),e(i+1,-1),3,DORE);
+  {const p=e(3,-1), q=e(5.4,-1);
+   mur(p,q,50,"#4a3a48"); 
+   c.fillStyle="#cfe4ea"; c.beginPath(); c.moveTo(p.x+3,p.y-16); c.lineTo(q.x-3,q.y-16);
+   c.lineTo(q.x-3,q.y-46); c.lineTo(p.x+3,p.y-46); c.closePath(); c.fill();
+   const m=e(4.2,-1); c.fillStyle="#4a3a48"; c.fillRect(m.x-1,m.y-46,2,30);
+   mur(p,q,15,DORE); mur(p,q,12,"#4a3a48");}
+  // Decor mural : cadres et etagere a boites a chapeaux.
+  {const p=e(1.4,-1); c.drawImage(MEUBLES.cadre("#8c4f6b"), p.x-10, p.y-52);}
+  {const p=e(2.4,-1); c.drawImage(MEUBLES.cadre("#5f7a9a"), p.x-10, p.y-46);}
+  {const p=e(-1,3.4); c.drawImage(MEUBLES.etagere(), p.x-6, p.y-50);}
+
+  // Parquet, deux tons + semis deterministe.
+  for(let gy=0;gy<GY;gy++) for(let gx=0;gx<GX;gx++){
+    const p=e(gx,gy);
+    dessus(c,p.x,p.y+TH/2,TL,TH,(gx+gy)%2?"#b98a52":"#c69760");
+    if(((gx*7+gy*13)%5)===0){ c.fillStyle="rgba(90,60,35,.30)"; c.fillRect(p.x-4,p.y+TH/2,7,1); } }
+  /* ⚠️ Le tapis se peint DANS la couche de sol, pas en sprite trie. Pose comme
+     un meuble, son sprite est ancre par le bas et il flotte : on lit une estrade
+     rose au milieu de la boutique. Un tapis est un revetement, pas un objet. */
+  for(let gy=2;gy<=4;gy++) for(let gx=2;gx<=5;gx++){
+    const p=e(gx,gy), bord = (gy===2||gy===4||gx===2||gx===5);
+    dessus(c,p.x,p.y+TH/2,TL,TH, bord?"#7d4560":"#8c4f6b"); }
+
+  const file=[];
+  const add=(gx,gy,sp,bulle)=>file.push({k:gx+gy,gx,gy,sp,bulle});
+  add(0,0.2, MEUBLES.portant(["#f3ecec","#f7e6ea","#efe3f0","#fbf3e6"]));
+  add(0,2.8, MEUBLES.portant(["#3a3a52","#2f3346","#454055","#3d3348"]));
+  add(0,5.4, MEUBLES.miroir());
+  add(3.0,0, MEUBLES.mannequin("#fdf7ee","princesse"));
+  add(4.6,0, MEUBLES.mannequin("#f6e9ec","sirene"));
+  add(7.2,0.2, MEUBLES.vitrine());
+  add(8,2.6, MEUBLES.plante());
+  add(8,4.8, MEUBLES.comptoir());
+  add(5.2,6.2, MEUBLES.canape("#a86a7c"));
+  add(1.4,6.2, MEUBLES.plante());
+
+  const gens=[
+    [3.2,3.4,{peau:"#f0cfae",chev:"#3a2a22",coiffe:"chignon",tissu:"#6b4a63",second:"#8c4f6b",acc:"presse",jambe:"#4a3a50"},"note"],
+    [5.0,2.4,{peau:"#e8b489",chev:"#7a4a24",coiffe:"long",tissu:"#c98aa0",second:"#a86a7c",robe:"boheme",pose:"joie"},"coeur"],
+    [2.0,1.6,{peau:"#d29466",chev:"#241c16",coiffe:"court",tissu:"#4a5a7a",second:"#39466b",jambe:"#33384a"},"piece"],
+    [6.6,4.4,{peau:"#f5d0aa",chev:"#b07a30",coiffe:"boucles",tissu:"#7fa87a",second:"#5f8f57",robe:"courte"},null],
+  ];
+  for(const [gx,gy,r,b] of gens) add(gx,gy,perso(r),b);
+
+  file.sort((a,b)=>a.k-b.k);
+  for(const it of file){ const p=e(it.gx,it.gy);
+    poserSprite(c,it.sp,p.x,p.y+TH/2);
+    if(it.bulle) bulle(c,p.x+11,p.y+TH/2-32,it.bulle); }
+
+  c.fillStyle="rgba(255,214,160,.10)"; c.fillRect(0,0,W,H);
+  return cv;
+}
+
+/* Bulles au-dessus des clients : elles disent d'ou vient l'argent. */
+function bulle(c,x,y,type){
+  c.fillStyle="#fbf5ea"; c.fillRect(x-7,y-7,14,12); c.fillRect(x-2,y+5,4,3);
+  c.fillStyle="#3a2b3a"; c.fillRect(x-8,y-8,16,1); c.fillRect(x-8,y+5,16,1);
+  c.fillRect(x-8,y-8,1,14); c.fillRect(x+7,y-8,1,14);
+  if(type==="coeur"){ c.fillStyle=C.poudre; c.fillRect(x-4,y-4,3,3); c.fillRect(x+1,y-4,3,3);
+                      c.fillRect(x-4,y-1,8,2); c.fillRect(x-2,y+1,4,2); c.fillRect(x-1,y+3,2,1); }
+  else if(type==="piece"){ c.fillStyle=DORE; c.beginPath(); c.ellipse(x,y-1,4,4,0,0,7); c.fill();
+                           c.fillStyle=teinter(DORE,-.3); c.fillRect(x-1,y-3,2,5); }
+  else if(type==="note"){ c.fillStyle="#6b4a63"; c.fillRect(x-3,y-5,7,1); c.fillRect(x-3,y-2,7,1); c.fillRect(x-3,y+1,4,1); }
+}
+/* ------------------------------------------------- LE JOUR J (vue de cote)
+   L'equivalent exact de l'arene d'Aincrad : le moment fort ne se joue pas
+   dans la vue qu'on amenage. Ciel en degrade — la seule entorse assumee a
+   la charte, comme le ciel de la ville — mais les cretes sont en MARCHES,
+   jamais en `fill()` : une colline antialiasee au-dessus d'un decor en
+   pixels francs se repere au premier coup d'oeil. */
+function sceneMariage(){
+  const W=520,H=248, {cv,c}=toile(W,H);
+  const sol=H-66;
+  const ciel=c.createLinearGradient(0,0,0,sol);
+  ciel.addColorStop(0,"#4a3a6b"); ciel.addColorStop(.45,"#b5738a");
+  ciel.addColorStop(.75,"#e8a07a"); ciel.addColorStop(1,"#f6d2a0");
+  c.fillStyle=ciel; c.fillRect(0,0,W,sol);
+  c.fillStyle="rgba(255,238,200,.55)";
+  c.beginPath(); c.ellipse(W*.72,sol-26,20,20,0,0,7); c.fill();
+
+  // Collines en marches de 3 px.
+  for(const [amp,base,col,ph] of [[16,sol-30,"#7a5f78",0],[11,sol-14,"#5e4a63",1.7]]){
+    for(let x=0;x<W;x+=3){
+      const y=base-Math.round((Math.sin(x/58+ph)*.6+Math.sin(x/23+ph)*.4)*amp/3)*3;
+      c.fillStyle=col; c.fillRect(x,y,3,sol-y); } }
+  // Arbres au loin, silhouettes en marches
+  const rr=pepin(hachage("arbres"));
+  for(let i=0;i<16;i++){ const x=Math.round(rr()*W), h=12+Math.round(rr()*10);
+    c.fillStyle="#4e3d55";
+    for(let k=0;k<4;k++) c.fillRect(x-(6-k*1.5), sol-16-h+k*4, (6-k*1.5)*2, 4); }
+
+  // Guirlande lumineuse : deux cables et des ampoules. C'est ce qui dit
+  // « soir de mariage » plus surement qu'un ciel orange.
+  for(const [y0,y1] of [[26,52],[40,70]]){
+    c.strokeStyle="rgba(60,40,55,.75)"; c.lineWidth=1;
+    c.beginPath(); c.moveTo(0,y0); c.quadraticCurveTo(W/2,y1,W,y0); c.stroke();
+    for(let i=0;i<=22;i++){ const t=i/22, x=t*W;
+      const y=(1-t)*(1-t)*y0+2*(1-t)*t*y1+t*t*y0;
+      c.fillStyle= i%2 ? "#ffe9b0" : "#ffd48a"; c.fillRect(Math.round(x)-1,Math.round(y)+2,2,3);
+      c.fillStyle="rgba(255,230,170,.22)"; c.fillRect(Math.round(x)-3,Math.round(y),6,7); } }
+
+  // Sol en trois bandes, plus fonce vers le premier plan.
+  c.fillStyle="#6f8a5c"; c.fillRect(0,sol,W,22);
+  c.fillStyle="#628050"; c.fillRect(0,sol+22,W,22);
+  c.fillStyle="#557046"; c.fillRect(0,sol+44,W,H-sol-44);
+  const rs=pepin(hachage("herbe"));
+  for(let i=0;i<220;i++){ const x=Math.round(rs()*W), y=sol+Math.round(rs()*(H-sol));
+    c.fillStyle="rgba(255,255,255,.07)"; c.fillRect(x,y,1,1); }
+  // Allee centrale
+  c.fillStyle="#efe4d4"; c.beginPath();
+  c.moveTo(W/2-18,sol); c.lineTo(W/2+18,sol); c.lineTo(W/2+52,H); c.lineTo(W/2-52,H); c.closePath(); c.fill();
+  c.fillStyle="#e2d3bd";
+  for(let i=0;i<5;i++){ const t=i/5, y=sol+t*(H-sol), w=18+t*34;
+    c.fillRect(W/2-w,Math.round(y),w*2,1); }
+
+  // Halo chaud derriere le couple : c'est ce qui ramene l'oeil au centre
+  // quand tout le reste de l'image est occupe.
+  const h=c.createRadialGradient(W/2,sol-2,4,W/2,sol-2,64);
+  h.addColorStop(0,"rgba(255,226,180,.42)"); h.addColorStop(1,"rgba(255,226,180,0)");
+  c.fillStyle=h; c.fillRect(W/2-64,sol-66,128,128);
+  // L'arche, les maries, l'officiant.
+  poserSprite(c, MEUBLES.arche(), W/2, sol+16);
+  poserSprite(c, perso({peau:"#f5d0aa",chev:"#2e2118",coiffe:"court",tissu:"#33384f",
+    second:"#232838",jambe:"#232838",acc:"noeud",dentelle:"#fbf5ea"}), W/2+18, sol+14);
+  poserSprite(c, perso({peau:"#f0cfae",chev:"#8a5a2e",coiffe:"long",tissu:"#fdf7ee",
+    second:"#f0e4d8",robe:"princesse",voile:1,acc:"bouquet",pose:"joie"}), W/2-18, sol+14);
+  poserSprite(c, perso({peau:"#d29466",chev:"#4a3a30",coiffe:"chignon",tissu:"#6b4a63",
+    second:"#8c4f6b",robe:"empire"}), W/2, sol+4);
+
+  // Rangees de chaises et invites. Les rangees du fond sont plus PALES :
+  // c'est le seul indice de profondeur qu'on ait en vue de cote.
+  const inv=[["#c98aa0","#a86a7c","long","boheme"],["#7fa87a","#5f8f57","boucles","courte"],
+             ["#8a9ac8","#6b7aa8","court",null],["#d8a94a","#b58a34","chignon","empire"],
+             ["#a86a7c","#8c4f6b","long","sirene"],["#6b7f9a","#4f6378","court",null]];
+  for(let rang=0;rang<3;rang++){
+    const y=sol+18+rang*22, k=1-rang*.16;
+    for(const cote of [-1,1]) for(let i=0;i<3;i++){
+      const x=W/2+cote*(58+i*30+rang*6);
+      c.globalAlpha=.55+rang*.15;
+      poserSprite(c, MEUBLES.chaise("#c9b8a8"), x, y+6);
+      c.globalAlpha=1;
+      const d=inv[(rang*3+i+(cote>0?3:0))%inv.length];
+      poserSprite(c, perso({peau:["#f5d0aa","#e8b489","#d29466"][(rang+i)%3],
+        chev:["#241c16","#7a4a24","#b07a30"][(i+rang)%3], coiffe:d[2],
+        tissu:melanger(d[0],"#f6d2a0",(1-k)*.5), second:d[1], robe:d[3],
+        jambe:"#3a3040"}), x, y+2);
+    } }
+  // Petales : deux pixels, jamais un flou.
+  const rp=pepin(hachage("petales"));
+  for(let i=0;i<70;i++){ const x=Math.round(rp()*W), y=Math.round(rp()*(sol+30));
+    c.fillStyle= rp()<.5 ? "rgba(240,180,195,.85)" : "rgba(250,235,225,.8)";
+    c.fillRect(x,y,2,2); }
+  c.fillStyle="rgba(255,190,140,.12)"; c.fillRect(0,0,W,H);
+  return cv;
+}
+
+/* ------------------------------------------------- LE SALON (isometrique) */
+function sceneSalon(){
+  const W=520,H=232, {cv,c}=toile(W,H);
+  const ox=W/2, oy=74, GX=10, GY=8;
+  const e=(gx,gy)=>({x:ox+(gx-gy)*TL/2, y:oy+(gx+gy)*TH/2});
+  c.fillStyle="#241c2c"; c.fillRect(0,0,W,H);
+  const mur=(p,q,haut,col)=>{ c.fillStyle=col; c.beginPath();
+    c.moveTo(p.x,p.y); c.lineTo(q.x,q.y); c.lineTo(q.x,q.y-haut); c.lineTo(p.x,p.y-haut);
+    c.closePath(); c.fill(); };
+  for(let i=0;i<GY;i++) mur(e(-1,i),e(-1,i+1),74,"#3b2f45");
+  for(let i=0;i<GX;i++) mur(e(i,-1),e(i+1,-1),74,"#473859");
+  // Poutres du plafond : elles donnent l'echelle d'une halle.
+  c.fillStyle="rgba(0,0,0,.22)";
+  for(let i=0;i<GX;i+=2){ const p=e(i,-1); c.fillRect(p.x-1,p.y-74,3,74); }
+  /* Banderole de theme. ⚠️ Elle se peint TUILE PAR TUILE le long du mur, comme
+     la plinthe. Tracee d'un seul quadrilatere entre les deux extremites, elle
+     part en diagonale a travers la halle : deux points eloignes sur une grille
+     isometrique ne definissent pas un mur, ils definissent une corde. */
+  const drape=(p,q,fond)=>{ mur(p,q,68,DORE); mur(p,q,66,C.prune);
+                            mur(p,q,46,DORE); mur(p,q,44,fond); };
+  for(let i=0;i<GX;i++) drape(e(i,-1), e(i+1,-1), "#473859");
+  for(let i=0;i<GY;i++) drape(e(-1,i), e(-1,i+1), "#3b2f45");
+  // Fanions sous la tenture : c'est le detail qui dit « salon » plutot que
+  // « couloir ». Deterministes, jamais tires.
+  for(let i=0;i<GX*2;i++){ const p=e(i/2,-1);
+    c.fillStyle = i%2 ? C.poudre : DORE; c.fillRect(p.x-2,p.y-44,4,4); c.fillRect(p.x-1,p.y-40,2,2); }
+  for(let i=0;i<GY*2;i++){ const p=e(-1,i/2);
+    c.fillStyle = i%2 ? DORE : C.poudre; c.fillRect(p.x-2,p.y-44,4,4); c.fillRect(p.x-1,p.y-40,2,2); }
+  // Moquette : losanges deux tons + tapis central prune.
+  for(let gy=0;gy<GY;gy++) for(let gx=0;gx<GX;gx++){
+    const p=e(gx,gy);
+    dessus(c,p.x,p.y+TH/2,TL,TH,(gx+gy)%2?"#6a5570":"#75607b"); }
+  for(let gy=1;gy<GY;gy++) for(let gx=4;gx<=5;gx++){
+    const p=e(gx,gy); dessus(c,p.x,p.y+TH/2,TL,TH,"#8c4f6b"); }
+
+  const file=[];
+  const add=(gx,gy,sp)=>file.push({k:gx+gy,gx,gy,sp});
+  add(1.4,0.2, MEUBLES.stand("#5f7a9a"));
+  add(4.6,0.2, MEUBLES.stand(C.prune));
+  add(7.8,0.2, MEUBLES.stand("#7a6a4a"));
+  add(3.4,1.8, MEUBLES.mannequin("#fdf7ee","sirene"));
+  add(5.8,1.8, MEUBLES.mannequin("#f7e6ea","princesse"));
+  add(4.6,3.4, MEUBLES.podium());
+  add(0.4,4.6, MEUBLES.tableRonde());
+  add(9,4.4, MEUBLES.tableRonde());
+  add(1.6,7, MEUBLES.plante());
+  add(8.4,7, MEUBLES.plante());
+
+  const foule=[
+    [4.6,4.8,{peau:"#f0cfae",chev:"#3a2a22",coiffe:"chignon",tissu:"#6b4a63",second:"#8c4f6b",acc:"presse",jambe:"#4a3a50"}],
+    [3.0,5.4,{peau:"#e8b489",chev:"#7a4a24",coiffe:"long",tissu:"#c98aa0",second:"#a86a7c",robe:"boheme"}],
+    [6.2,5.0,{peau:"#d29466",chev:"#241c16",coiffe:"court",tissu:"#3a4258",second:"#2c3346",jambe:"#2c3346"}],
+    [5.4,6.6,{peau:"#f5d0aa",chev:"#b07a30",coiffe:"boucles",tissu:"#7fa87a",second:"#5f8f57",robe:"courte"}],
+    [2.2,3.2,{peau:"#f0cfae",chev:"#4a3a30",coiffe:"toque",tissu:"#f2ece2",second:"#d8cfc2",acc:"plateau",jambe:"#3a3040"}],
+    [7.4,2.8,{peau:"#e8b489",chev:"#2e2118",coiffe:"casque",tissu:"#4a4258",second:"#33384f",jambe:"#33384f"}],
+    [7.8,6.4,{peau:"#d29466",chev:"#7a4a24",coiffe:"long",tissu:"#6f9a63",second:"#547a4c",acc:"gerbe",robe:"empire"}],
+    [2.6,6.8,{peau:"#f5d0aa",chev:"#5a2020",coiffe:"chignon",tissu:"#8c4f6b",second:"#6b3a50",robe:"sirene"}],
+  ];
+  for(const [gx,gy,r] of foule) add(gx,gy,perso(r));
+  file.sort((a,b)=>a.k-b.k);
+  for(const it of file){ const p=e(it.gx,it.gy); poserSprite(c,it.sp,p.x,p.y+TH/2); }
+  c.fillStyle="rgba(120,90,160,.12)"; c.fillRect(0,0,W,H);
+  return cv;
+}
+/* ============================================================
+   PARTIE 6 — assemblage de la page. Le chassis d'interface est
+   celui d'Aincrad (barre de ressources, onglets, panneaux a
+   bordure franche), la charte est neuve.
+   ============================================================ */
+const ONGLETS = ["BOUTIQUE","STOCK","CLIENTS","PRESTATAIRES","SALON","CONCURRENTS","BILAN"];
+
+function barre(res, actif){
+  return `<div class="barre">
+    <span class="titre">L'ATELIER D'ÉLISE</span>
+    ${res.map(r=>`<span class="res"><i style="background:${r.c}"></i>
+      <span class="lbl">${r.n}</span><b>${r.v}</b></span>`).join("")}
+    <span class="vitesse"><span>II</span><span data-on>1x</span><span>3x</span><span>8x</span></span>
+  </div>`;
+}
+function onglets(actif){
+  return `<div class="onglets">${ONGLETS.map(o=>
+    `<span ${o===actif?"data-on":""}>${o}</span>`).join("")}</div>`;
+}
+function cadre(id, scene, res, actif, avant, apres){
+  const el=document.getElementById(id);
+  el.innerHTML = barre(res) + (avant||"") + (apres||"") + onglets(actif);
+  const cv = scene;
+  cv.className="scene";
+  /* Le CADRE prend la largeur du canvas, pas l'inverse : sinon un panneau de
+     score plus large etire la boite et laisse une bande morte a cote de la
+     scene. Et l'echelle reste un multiple propre — a facteur fractionnaire,
+     `image-rendering:pixelated` donne des pixels de tailles inegales. */
+  const L = cv.width*1.6;
+  cv.style.width = L+"px";
+  el.style.width = L+"px";
+  // Le canvas s'insere entre le bandeau d'avant et le panneau d'apres.
+  el.insertBefore(cv, el.children[avant ? 2 : 1]);
+}
+
+/* Le score du jour J. Trois axes, parce qu'un seul chiffre ne dit pas ce
+   qu'on a rate — et c'est ce qu'on veut corriger au mariage suivant. */
+const AXES = (a) => `<div class="panneau" style="border:0;border-top:2px solid var(--bord)">
+  <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+    <div><span class="etiq" style="margin:0">NOTE DU JOUR J</span>
+      <span class="score">${a.note}</span><span style="color:var(--faible)"> / 100</span></div>
+    <div style="flex:1;min-width:240px">
+      ${a.axes.map(([n,v,c])=>`<div class="ligne" style="padding:3px 0;border:0">
+        <span style="min-width:92px;font-size:11px">${n}</span>
+        <span class="jauge"><i style="width:${v}%;background:${c}"></i></span>
+        <b style="min-width:30px;text-align:right;font-size:11px">${v}</b></div>`).join("")}
+    </div>
+    <div style="min-width:170px;font-size:11px;color:var(--faible);line-height:1.5">
+      ${a.txt}</div>
+  </div></div>`;
+
+const RES_BASE = [
+  {n:"Argent", v:"18 400", c:"#d8a94a"},
+  {n:"Notoriété", v:"★★★☆☆", c:"#e69aa6"},
+  {n:"Stock", v:"37", c:"#7fa87a"},
+  {n:"Saison", v:"Été", c:"#8c4f6b"},
+  {n:"Jour", v:"148", c:"#a89bb0"},
+];
+
+cadre("j1", sceneBoutique(), RES_BASE, "BOUTIQUE");
+cadre("j3", sceneMariage(), RES_BASE, "CLIENTS", null, AXES({
+  note:87,
+  axes:[["Élégance",92,"#d8a94a"],["Cohérence",78,"#7fa87a"],
+        ["Émotion",95,"#e69aa6"],["Budget tenu",64,"#8a9ac8"]],
+  txt:`<b style="color:var(--creme)">Camille &amp; Noé</b> et leurs 80 invités
+       repartent conquis. +3 200 € · +18 notoriété · deux invités demandent
+       ta carte.`
+}));
+cadre("j4", sceneSalon(), [
+  {n:"Argent", v:"18 400", c:"#d8a94a"},
+  {n:"Notoriété", v:"★★★☆☆", c:"#e69aa6"},
+  {n:"Points", v:"241", c:"#7fa87a"},
+  {n:"Saison", v:"Automne", c:"#8c4f6b"},
+  {n:"Jour", v:"312", c:"#a89bb0"},
+], "SALON",
+`<div class="bandeau">SALON DU MARIAGE · AN 3 — THÈME TIRÉ : <span style="color:var(--or)">BOHÈME CHAMPÊTRE</span></div>`,
+`<div class="panneau classement" style="border:0;border-top:2px solid var(--bord)">
+   <span class="etiq">CLASSEMENT</span>
+   ${[["1","Maison Aurore","#d8a94a",268],["2","L'Atelier d'Élise","#e69aa6",241],
+      ["3","Blanc &amp; Or","#a89bb0",203],["4","Cérémonies Duval","#a89bb0",176]]
+     .map(([r,n,c,p])=>`<div class="ligne">
+       <b style="color:${c};min-width:18px">${r}</b>
+       <b style="min-width:150px;color:${c}">${n}</b>
+       <span class="jauge"><i style="width:${p/268*100}%;background:${c}"></i></span>
+       <b style="min-width:38px;text-align:right">${p}</b></div>`).join("")}
+   <div class="ligne" style="color:var(--faible)">Le thème pèse 40 % de la note :
+     une robe princesse valait 12 points de moins cette année.</div>
+ </div>`);
+
+/* ------------------------------------------------ le dossier client */
+{
+  const el = document.getElementById("j2");
+  const mini = (r,px)=>{ const cv=perso(r); return `background-image:url(${cv.toDataURL()});`
+    +`background-size:contain;background-repeat:no-repeat;background-position:center;`
+    +`image-rendering:pixelated;width:${px}px;height:${Math.round(px*cv.height/cv.width)}px;display:inline-block`; };
+  const gouts=[["Bohème",78,"#7fa87a"],["Classique",34,"#8a9ac8"],["Moderne",21,"#a89bb0"],["Romantique",64,"#e69aa6"]];
+  el.innerHTML = `
+  <div class="panneau">
+    <span class="etiq">DOSSIER · MARIAGE N°23</span>
+    <div class="ligne">
+      <i style="${mini({peau:"#f0cfae",chev:"#8a5a2e",coiffe:"long",tissu:"#fdf7ee",second:"#f0e4d8",robe:"boheme",voile:1},34)}"></i>
+      <i style="${mini({peau:"#e8b489",chev:"#2e2118",coiffe:"court",tissu:"#4a5a7a",second:"#39466b",jambe:"#33384a",acc:"noeud"},34)}"></i>
+      <div style="flex:1">
+        <b>Camille &amp; Noé</b><br>
+        <span style="color:var(--faible);font-size:11px">14 juin · 80 invités · Domaine du Verger</span>
+      </div>
+    </div>
+    <div class="ligne"><span>Budget</span>
+      <span class="jauge"><i style="width:72%;background:var(--or)"></i></span>
+      <b style="color:var(--or)">8 640 / 12 000</b></div>
+    <div class="ligne"><span>Préparation</span>
+      <span class="jauge"><i style="width:64%;background:var(--vert)"></i></span><b>64 %</b></div>
+    <span class="etiq" style="margin-top:12px">LEURS GOÛTS</span>
+    ${gouts.map(([n,v,c])=>`<div class="ligne"><span style="min-width:88px">${n}</span>
+      <span class="jauge"><i style="width:${v}%;background:${c}"></i></span>
+      <b style="min-width:34px;text-align:right">${v}</b></div>`).join("")}
+  </div>
+  <div class="panneau">
+    <span class="etiq">CE QUE TU LEUR PROPOSES</span>
+    <div class="slots">
+      <div class="slot"><u>Lieu</u><b>Domaine du Verger</b><br><span style="color:var(--vert)">+18 cohérence</span></div>
+      <div class="slot"><u>Robe</u><b>Bohème dentelle</b><br><span style="color:var(--vert)">+24 goût</span></div>
+      <div class="slot"><u>Costume</u><b>Trois-pièces lin</b><br><span style="color:var(--vert)">+11</span></div>
+      <div class="slot"><u>Décoration</u><b>Champêtre or</b><br><span style="color:var(--poudre)">−6 hors thème</span></div>
+      <div class="slot" data-vide><u>Traiteur</u><b>— à réserver —</b></div>
+      <div class="slot" data-vide><u>Musique</u><b>— à réserver —</b></div>
+    </div>
+    <span class="etiq" style="margin-top:14px">ALERTES</span>
+    <div class="ligne" style="color:var(--poudre)">! Le fleuriste Rosalie est déjà pris le 14 juin</div>
+    <div class="ligne" style="color:var(--poudre)">! Décoration en or sur un couple bohème : ça jure</div>
+    <div class="ligne" style="color:var(--faible)">Il reste 3 360 € et 22 jours.</div>
+    <div class="ligne" style="margin-top:8px">
+      <span style="flex:1"></span>
+      <span style="border:2px solid var(--or);color:var(--or);padding:7px 16px;
+        font-family:var(--pixel);font-size:11px;letter-spacing:.06em">LANCER LE JOUR J</span></div>
+  </div>`;
+}
+
+/* ------------------------------------------------ galeries */
+{
+  const g=document.getElementById("g1");
+  const cols=["#fdf7ee","#f7e6ea","#efe3f0","#fbf3e6","#f2e4e8"];
+  Object.keys(ROBES).forEach((k,i)=>{
+    const cv = perso({peau:"#f0cfae",chev:["#3a2a22","#8a5a2e","#b07a30","#241c16","#5a3a5a"][i],
+      coiffe:["long","chignon","boucles","long","court"][i], tissu:cols[i],
+      second:teinter(cols[i],-.1), robe:k, voile:i===0?1:0, acc:i===1?"bouquet":null});
+    const d=document.createElement("div"); d.className="item";
+    cv.style.width=(cv.width*4)+"px"; d.appendChild(cv);
+    const s=document.createElement("span"); s.textContent=ROBES[k].txt; d.appendChild(s);
+    g.appendChild(d);
+  });
+}
+{
+  const g=document.getElementById("g2");
+  const gens=[
+    ["Toi",{peau:"#f0cfae",chev:"#3a2a22",coiffe:"chignon",tissu:"#6b4a63",second:"#8c4f6b",acc:"presse",jambe:"#4a3a50"}],
+    ["Mariée",{peau:"#f5d0aa",chev:"#8a5a2e",coiffe:"long",tissu:"#fdf7ee",second:"#f0e4d8",robe:"princesse",voile:1,acc:"bouquet"}],
+    ["Marié",{peau:"#e8b489",chev:"#2e2118",coiffe:"court",tissu:"#33384f",second:"#232838",jambe:"#232838",acc:"noeud"}],
+    ["Invitée",{peau:"#d29466",chev:"#7a4a24",coiffe:"boucles",tissu:"#c98aa0",second:"#a86a7c",robe:"courte"}],
+    ["Invité",{peau:"#f5d0aa",chev:"#b07a30",coiffe:"court",tissu:"#5f7a9a",second:"#46607d",jambe:"#33384a"}],
+    ["Fleuriste",{peau:"#e8b489",chev:"#4a3a30",coiffe:"long",tissu:"#6f9a63",second:"#547a4c",robe:"empire",acc:"gerbe"}],
+    ["Traiteur",{peau:"#f0cfae",chev:"#241c16",coiffe:"toque",tissu:"#f2ece2",second:"#d8cfc2",acc:"plateau",jambe:"#3a3040"}],
+    ["DJ",{peau:"#d29466",chev:"#2e2118",coiffe:"casque",tissu:"#4a4258",second:"#33384f",jambe:"#33384f"}],
+    ["Concurrente",{peau:"#f5d0aa",chev:"#5a2020",coiffe:"chignon",tissu:"#8c4f6b",second:"#6b3a50",robe:"sirene"}],
+  ];
+  for(const [nom,r] of gens){
+    const cv=perso(r); const d=document.createElement("div"); d.className="item";
+    cv.style.width=(cv.width*4)+"px"; d.appendChild(cv);
+    const s=document.createElement("span"); s.textContent=nom; d.appendChild(s);
+    g.appendChild(d);
+  }
+}
+</script>

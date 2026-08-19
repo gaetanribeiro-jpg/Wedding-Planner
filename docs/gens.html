@@ -1,0 +1,83 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<title>Planche contact — les gens</title>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="planche.css"></head><body>
+<div class="wrap">
+<div class="liens"><a href="robes.html">les robes</a><a href="mobilier.html">le mobilier</a><a href="maquettes.html">les maquettes d'origine</a><a href="../index.html">le jeu</a></div>
+<h1>Les gens</h1>
+<p class="chapo">Mariés, invités, prestataires, concurrents, et toi. Même générateur, recettes
+différentes. La peau, les cheveux et la coiffe viennent d'un <b>hachage du nom</b> —
+jamais d'un tirage : le rendu ne consomme pas <code>alea()</code>, sinon la partie se
+décale à graine égale et l'équilibrage devient intestable.</p>
+
+<h2>1 · Les rôles</h2>
+<p class="note">Chacun doit se reconnaître à sa silhouette et à son accessoire, pas à son étiquette.</p>
+<div class="galerie" id="g1"></div>
+
+<h2>2 · Les prestataires — le métier se lit sur la tenue</h2>
+<p class="note">Toque, casque, gerbe : trois métiers, trois signes. Sans eux, trois personnes en tablier.</p>
+<div class="galerie" id="g2"></div>
+
+<h2>3 · Douze invités tirés de douze noms</h2>
+<p class="note">⚠️ Même hachage = même personne, toujours. Deux invités ne sont jamais clones,
+et pourtant aucun nombre aléatoire n'a été consommé. Recharge la page : ils sont identiques.</p>
+<div class="galerie" id="g3"></div>
+
+<h2>4 · Les badauds de la boutique</h2>
+<p class="note">Ce sont les visiteurs réellement servis par l'économie de fréquentation,
+pas des figurants : leur nombre vient de la journée simulée.</p>
+<div class="galerie" id="g4"></div>
+
+<h2>5 · Sur fond clair</h2>
+<div class="galerie clair" id="g5"></div>
+</div>
+<script type="module">
+import * as Gens from "../src/gens.js";
+
+/* ⚠️ `spriteMeuble` MEMORISE ses canvas : deux appels pour la meme recette
+   rendent LE MEME noeud DOM. Or `appendChild` DEPLACE un noeud au lieu de le
+   copier — la section 2 vidait donc la section 1 de ses meubles, et la
+   planche affichait des etiquettes sans image. Dans le jeu le probleme
+   n'existe pas (on passe par `drawImage`), mais toute planche qui INSERE un
+   sprite doit le cloner. */
+const cloner = src => {
+  const cv = document.createElement("canvas");
+  cv.width = src.width; cv.height = src.height;
+  const c = cv.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  c.drawImage(src, 0, 0);
+  return cv;
+};
+const poser = (id, src, txt, k=4) => {
+  const g = document.getElementById(id);
+  const cv = cloner(src);
+  const d = document.createElement("div"); d.className = "item";
+  cv.style.width = (cv.width*k) + "px"; d.appendChild(cv);
+  const s = document.createElement("span"); s.innerHTML = txt; d.appendChild(s);
+  g.appendChild(d);
+};
+
+poser("g1", Gens.planner("Élise"), "Toi");
+poser("g1", Gens.mariee("Camille","princesse","#fdf7ee"), "Mariée");
+poser("g1", Gens.marie("Noé","#33384f"), "Marié");
+poser("g1", Gens.invite("Léa"), "Invitée");
+poser("g1", Gens.invite("Sacha"), "Invité");
+poser("g1", Gens.concurrente("aurore","#8c4f6b"), "Concurrente");
+
+poser("g2", Gens.prestataire("tableChamps","traiteur","boheme"), "Traiteur");
+poser("g2", Gens.prestataire("djTonio","musique","moderne"), "DJ");
+poser("g2", Gens.prestataire("grangeVerger","lieu","boheme"), "Lieu");
+poser("g2", Gens.prestataire("quatuorLune","musique","classique"), "Quatuor");
+poser("g2", Gens.prestataire("maisonRoux","traiteur","romantique"), "Traiteur");
+
+for(const n of ["Camille","Noé","Léa","Sacha","Jeanne","Malo",
+                "Inès","Basile","Alma","Tom","Nour","Elias"])
+  poser("g3", Gens.invite(n), n, 3);
+
+for(let i = 0; i < 8; i++) poser("g4", Gens.badaud("badaud"+i), "badaud"+i, 3);
+
+poser("g5", Gens.planner("Élise"), "Toi");
+poser("g5", Gens.mariee("Camille","sirene","#f7e6ea"), "Mariée");
+poser("g5", Gens.marie("Noé","#33384f"), "Marié");
+poser("g5", Gens.prestataire("djTonio","musique","moderne"), "DJ");
+</script></body></html>

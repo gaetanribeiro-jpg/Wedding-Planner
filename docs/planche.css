@@ -1,0 +1,33 @@
+/* Feuille commune aux planches contact.
+   ⚠️ C'est ICI qu'on juge le rendu, jamais dans le code : aucun des dix
+   defauts de pixel art listes dans CLAUDE.md n'etait visible autrement. */
+:root{
+  --nuit:#2e2434; --nuit2:#3d3044; --bord:#584a63; --bord2:#6e5c78;
+  --creme:#f7efe4; --or:#d8a94a; --poudre:#e69aa6; --prune:#8c4f6b;
+  --vert:#7fa87a; --texte:#f4ecdf; --faible:#a89bb0;
+  --pixel:'Silkscreen',monospace; --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#221a29;color:var(--texte);
+     font:13px/1.6 var(--mono);padding:24px 16px 60px}
+.wrap{max-width:1120px;margin:0 auto}
+h1{font-family:var(--pixel);font-size:22px;margin:0 0 6px;color:var(--creme);
+   letter-spacing:.04em}
+.chapo{color:var(--faible);max-width:76ch;line-height:1.7;margin:0 0 28px}
+h2{font-family:var(--pixel);font-size:13px;color:var(--or);letter-spacing:.08em;
+   margin:36px 0 4px;padding-bottom:6px;border-bottom:2px solid var(--bord)}
+.note{color:var(--faible);font-size:12px;margin:0 0 14px;max-width:80ch;line-height:1.65}
+.note b{color:var(--creme)}
+.galerie{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;
+  background:var(--nuit);border:2px solid var(--bord);padding:16px}
+.galerie.clair{background:#6b5566}
+.item{text-align:center;width:112px}
+.item canvas{image-rendering:pixelated;display:block;margin:0 auto}
+.item span{display:block;font-size:9px;color:var(--faible);margin-top:5px;
+  font-family:var(--pixel);letter-spacing:.04em;line-height:1.5}
+.liens{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.liens a{color:var(--poudre);border:2px solid var(--bord);padding:4px 10px;
+  text-decoration:none;font-size:11px}
+.liens a:hover{border-color:var(--poudre)}
+.regle{border-left:6px solid var(--prune);background:var(--nuit2);padding:10px 14px;
+  margin:14px 0;font-size:12px;color:var(--creme)}

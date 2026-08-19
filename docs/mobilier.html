@@ -1,0 +1,89 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<title>Planche contact — le mobilier</title>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="planche.css"></head><body>
+<div class="wrap">
+<div class="liens"><a href="robes.html">les robes</a><a href="gens.html">les gens</a><a href="maquettes.html">les maquettes d'origine</a><a href="../index.html">le jeu</a></div>
+<h1>Le mobilier</h1>
+<p class="chapo">Chaque meuble est une recette : on dessine à la résolution native, on
+<b>seuille l'alpha</b>, puis on dérive le contour. Sans le seuillage, les diagonales
+isométriques sortent floues et le résultat fait low-poly plat — pas pixel art.</p>
+
+<div class="regle">⚠️ <b>Le mobilier doit être à l'échelle du personnage.</b> C'est la raison
+d'être de la section 1 : chaque meuble y est posé à côté d'une silhouette de 28 px.
+La première version du stand faisait 96×84 et se lisait comme un lit.</div>
+
+<h2>1 · À l'échelle, contre un personnage (×2)</h2>
+<div class="galerie" id="g1"></div>
+
+<h2>2 · Le catalogue de la boutique (×2)</h2>
+<p class="note">Ce sont les meubles achetables, avec leur prix, leur gain par visiteur et
+leurs <b>places</b> — les places sont le plafond de l'économie, pas l'attrait.</p>
+<div class="galerie" id="g2"></div>
+
+<h2>3 · Les variantes colorées</h2>
+<p class="note">Les trois faces d'un volume viennent d'<b>une</b> teinte : trois couleurs
+indépendantes donneraient trois plaques posées côte à côte, pas un solide.</p>
+<div class="galerie" id="g3"></div>
+
+<h2>4 · Les mannequins portent de vraies robes</h2>
+<p class="note">Même générateur que les personnages : la robe exposée en vitrine est
+littéralement celle que la mariée portera.</p>
+<div class="galerie" id="g4"></div>
+
+<h2>5 · Sur fond clair — le contour tient-il ?</h2>
+<div class="galerie clair" id="g5"></div>
+</div>
+<script type="module">
+import { RECETTES, spriteMeuble } from "../src/mobilier.js";
+import { perso, ROBES } from "../src/gens.js";
+import { MEUBLES } from "../src/config.js";
+import { fmt } from "../src/utils.js";
+
+/* ⚠️ `spriteMeuble` MEMORISE ses canvas : deux appels pour la meme recette
+   rendent LE MEME noeud DOM. Or `appendChild` DEPLACE un noeud au lieu de le
+   copier — la section 2 vidait donc la section 1 de ses meubles, et la
+   planche affichait des etiquettes sans image. Dans le jeu le probleme
+   n'existe pas (on passe par `drawImage`), mais toute planche qui INSERE un
+   sprite doit le cloner. */
+const cloner = src => {
+  const cv = document.createElement("canvas");
+  cv.width = src.width; cv.height = src.height;
+  const c = cv.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  c.drawImage(src, 0, 0);
+  return cv;
+};
+const poser = (id, src, txt, k=2) => {
+  const g = document.getElementById(id);
+  const cv = cloner(src);
+  const d = document.createElement("div"); d.className = "item";
+  d.style.width = Math.max(112, cv.width*k + 12) + "px";
+  cv.style.width = (cv.width*k) + "px"; d.appendChild(cv);
+  const s = document.createElement("span"); s.innerHTML = txt; d.appendChild(s);
+  g.appendChild(d);
+};
+const perso28 = () => perso({ peau:"#f0cfae", chev:"#3a2a22", coiffe:"chignon",
+  tissu:"#6b4a63", second:"#8c4f6b", acc:"presse", jambe:"#4a3a50" });
+
+for(const cle of ["portant","comptoir","canape","podium","stand","arche"]){
+  poser("g1", spriteMeuble(cle), cle);
+  poser("g1", perso28(), "← 28 px");
+}
+
+for(const cle of Object.keys(MEUBLES)){
+  if(!RECETTES[cle]) continue;
+  const m = MEUBLES[cle];
+  poser("g2", spriteMeuble(cle, cle === "mannequin" ? "#fdf7ee,princesse" : ""),
+    `${m.txt}<br>${fmt(m.prix)} € · gain ${m.gain}<br>${m.places} place(s) · attrait ${m.attrait}`);
+}
+
+for(const c of ["#a86a7c","#7fa87a","#8a9ac8","#d8a94a"]) poser("g3", RECETTES.canape(c), "canapé " + c);
+for(const c of ["#5f7a9a","#8c4f6b","#7a6a4a"]) poser("g3", RECETTES.stand(c), "stand " + c);
+
+for(const k of Object.keys(ROBES))
+  poser("g4", spriteMeuble("mannequin", `#fdf7ee,${k}`), ROBES[k].txt);
+
+for(const cle of ["comptoir","vitrine","miroir","plante","tableRonde","etagere"])
+  poser("g5", spriteMeuble(cle), cle);
+</script></body></html>

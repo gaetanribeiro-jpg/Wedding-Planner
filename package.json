@@ -1,0 +1,17 @@
+{
+  "name": "atelier-jour-j",
+  "version": "0.1.0",
+  "description": "Jeu de gestion pixel : wedding planner. Kairosoft x le plus beau jour.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "npx --yes serve . -l 8080",
+    "dev:python": "python3 -m http.server 8080",
+    "balance": "cd tools/balance && python3 banc.py",
+    "sim": "cd tools/balance && python3 sim.py",
+    "tune": "cd tools/balance && python3 tune.py",
+    "verifier": "cd tools/balance && python3 verifier.py",
+    "parite": "node tools/test-parite.mjs --mediane --graines 20",
+    "solo": "node tools/build-solo.mjs"
+  }
+}

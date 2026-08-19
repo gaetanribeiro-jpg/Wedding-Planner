@@ -1,0 +1,92 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<title>Planche contact — les robes</title>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="planche.css"></head><body>
+<div class="wrap">
+<div class="liens"><a href="gens.html">les gens</a><a href="mobilier.html">le mobilier</a><a href="maquettes.html">les maquettes d'origine</a><a href="../index.html">le jeu</a></div>
+<h1>Les cinq silhouettes</h1>
+<p class="chapo">Tout est généré par <code>src/gens.js</code> — la planche importe le module du jeu,
+pas une copie. C'est le test qui décide de tout : si une princesse et une sirène se
+ressemblent à cette taille, le système de goûts s'effondre et le stock cesse d'être un pari.</p>
+
+<div class="regle">⚠️ À 20 px de large, deux pixels d'écart n'existent pas. Il faut <b>exagérer</b> :
+la princesse touche les bords de la grille, la sirène est franchement moulante <i>puis</i>
+franchement évasée. Chaque pièce claire porte une couture contrastée — sans elle, une robe
+ivoire est un aplat, parce que l'ombrage dérivé ne mord pas sur du presque-blanc.</div>
+
+<h2>1 · Les cinq silhouettes, à taille de test (×4)</h2>
+<p class="note">Lues sans étiquette : c'est la seule façon de vérifier qu'elles se distinguent.</p>
+<div class="galerie" id="g1"></div>
+
+<h2>2 · La même robe dans les cinq teintes du jeu</h2>
+<p class="note">L'ombrage est <b>dérivé</b>, pas peint : il doit tenir sur l'ivoire comme sur le poudré.</p>
+<div class="galerie" id="g2"></div>
+
+<h2>3 · Avec et sans voile</h2>
+<p class="note">⚠️ Le voile se dessine <b>derrière</b> le corps. Posé par-dessus, la mariée perd son
+visage et sort en tache blanche : d'un voile, ce qu'on voit, c'est ce qui dépasse de la silhouette.</p>
+<div class="galerie" id="g3"></div>
+
+<h2>4 · Sur fond clair — le contour dérivé tient-il ?</h2>
+<p class="note">Un contour qui ne se voit que sur fond sombre n'est pas un contour.</p>
+<div class="galerie clair" id="g4"></div>
+
+<h2>5 · À taille réelle de jeu (×1, ×2, ×3)</h2>
+<p class="note">⚠️ L'échelle d'affichage est un <b>entier</b>. À facteur fractionnaire,
+<code>image-rendering:pixelated</code> donne des pixels de tailles inégales.</p>
+<div class="galerie" id="g5"></div>
+</div>
+<script type="module">
+import { perso, ROBES } from "../src/gens.js";
+import { teinter } from "../src/pixel.js";
+
+const TEINTES = ["#fdf7ee","#f7e6ea","#efe3f0","#fbf3e6","#f2e4e8"];
+/* ⚠️ `spriteMeuble` MEMORISE ses canvas : deux appels pour la meme recette
+   rendent LE MEME noeud DOM. Or `appendChild` DEPLACE un noeud au lieu de le
+   copier — la section 2 vidait donc la section 1 de ses meubles, et la
+   planche affichait des etiquettes sans image. Dans le jeu le probleme
+   n'existe pas (on passe par `drawImage`), mais toute planche qui INSERE un
+   sprite doit le cloner. */
+const cloner = src => {
+  const cv = document.createElement("canvas");
+  cv.width = src.width; cv.height = src.height;
+  const c = cv.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  c.drawImage(src, 0, 0);
+  return cv;
+};
+const poser = (id, src, txt, k=4) => {
+  const g = document.getElementById(id);
+  const cv = cloner(src);
+  const d = document.createElement("div"); d.className = "item";
+  cv.style.width = (cv.width*k) + "px"; d.appendChild(cv);
+  const s = document.createElement("span"); s.innerHTML = txt; d.appendChild(s);
+  g.appendChild(d);
+};
+const CHEV = ["#3a2a22","#8a5a2e","#b07a30","#241c16","#5a3a5a"];
+const COIF = ["long","chignon","boucles","long","court"];
+
+Object.keys(ROBES).forEach((k,i) => poser("g1",
+  perso({ peau:"#f0cfae", chev:CHEV[i], coiffe:COIF[i], tissu:TEINTES[i],
+          second:teinter(TEINTES[i],-.10), robe:k, voile:i===0?1:0,
+          acc:i===1?"bouquet":null }), ROBES[k].txt));
+
+TEINTES.forEach((t,i) => poser("g2",
+  perso({ peau:"#e8b489", chev:"#3a2a22", coiffe:"chignon", tissu:t,
+          second:teinter(t,-.10), robe:"princesse" }), t));
+
+for(const k of ["princesse","sirene","boheme"]){
+  poser("g3", perso({ peau:"#f0cfae", chev:"#8a5a2e", coiffe:"long", tissu:"#fdf7ee",
+    second:"#f0e4d8", robe:k }), ROBES[k].txt + "<br>sans voile");
+  poser("g3", perso({ peau:"#f0cfae", chev:"#8a5a2e", coiffe:"long", tissu:"#fdf7ee",
+    second:"#f0e4d8", robe:k, voile:1, acc:"bouquet" }), ROBES[k].txt + "<br>avec voile");
+}
+
+Object.keys(ROBES).forEach((k,i) => poser("g4",
+  perso({ peau:"#f0cfae", chev:CHEV[i], coiffe:COIF[i], tissu:TEINTES[i],
+          second:teinter(TEINTES[i],-.10), robe:k }), ROBES[k].txt));
+
+for(const k of [1,2,3])
+  poser("g5", perso({ peau:"#f0cfae", chev:"#8a5a2e", coiffe:"long", tissu:"#fdf7ee",
+    second:"#f0e4d8", robe:"princesse", voile:1 }), "×" + k, k);
+</script></body></html>
