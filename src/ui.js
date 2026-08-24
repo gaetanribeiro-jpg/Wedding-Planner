@@ -43,6 +43,7 @@ export const vue = {
   onglet: "boutique",
   meubleEnMain: null,
   dossierOuvert: null,
+  prospectOuvert: null,
   slotOuvert: null,
   survol: null,
   valide: true,
@@ -70,7 +71,7 @@ export function monter(racine, G, cb){
     <div class="jeu">
       <div class="barre" id="barre"></div>
       <div id="bandeaux"></div>
-      <canvas class="scene" id="scene" width="480" height="206"></canvas>
+      <canvas class="scene" id="scene" width="340" height="216"></canvas>
       <div class="onglets" id="onglets"></div>
       <div id="panneau"></div>
     </div>
@@ -349,11 +350,79 @@ function pStock(G){
 
 /* -------------------------------------------------------------- clients */
 
+/**
+ * Les gouts d'un couple, du plus fort au plus faible.
+ *
+ * ⚠️ L'ordre COMPTE. Range dans l'ordre fixe de la table, le joueur devait
+ * comparer quatre barres pour trouver laquelle domine — et la question qu'il
+ * se pose, la seule, c'est « qu'est-ce qu'ils aiment ? ». Trier par valeur
+ * repond a la question au lieu de la poser.
+ */
 function gouts(couple){
-  return STYLES.map(s => `<div class="ligne mince">
-    <span style="min-width:88px">${ech(STYLE[s].txt)}</span>
-    ${jauge(couple.gouts[s], 100, STYLE[s].couleur)}
-    <b style="min-width:30px;text-align:right">${couple.gouts[s]}</b></div>`).join("");
+  return [...STYLES]
+    .sort((a, b) => couple.gouts[b] - couple.gouts[a])
+    .map((s, i) => `<div class="ligne mince">
+      <span style="min-width:96px;${i === 0 ? "font-weight:700" : ""}">${ech(STYLE[s].txt)}</span>
+      ${jauge(couple.gouts[s], 100, STYLE[s].couleur)}
+      <b style="min-width:30px;text-align:right">${couple.gouts[s]}</b></div>`).join("");
+}
+
+/**
+ * Ce que le couple demande, en toutes lettres.
+ *
+ * ⚠️ CE PANNEAU N'A PAS LE DROIT DE DONNER LA REPONSE (decision de design n°9).
+ * Il explique la LECTURE — ce qu'est un gout dominant, ce que vaut un
+ * emplacement vide, comment se lit un budget — jamais quel style va avec quel
+ * autre. La table d'affinites reste le secret du jeu ; sans elle a deviner, il
+ * ne reste qu'a cliquer.
+ */
+function ceQuIlsVeulent(p, G){
+  const tries = [...STYLES].sort((a, b) => p.gouts[b] - p.gouts[a]);
+  const dom = tries[0], second = tries[1];
+  const ecart = p.gouts[dom] - p.gouts[second];
+  const f = Imprevus.fourchetteExigence(p, EXIGENCE_FLOU);
+  const parTete = Math.round(p.budget / Math.max(1, p.invites));
+  const reste = p.expireLe - G.jour;
+
+  const humeur = ecart >= 35
+    ? `<b>${ech(STYLE[dom].txt)}</b> domine largement : tout ce qui s'en éloigne
+       se verra.`
+    : ecart >= 15
+      ? `<b>${ech(STYLE[dom].txt)}</b> domine, mais <b>${ech(STYLE[second].txt)}</b>
+         compte encore.`
+      : `<b>${ech(STYLE[dom].txt)}</b> et <b>${ech(STYLE[second].txt)}</b> se
+         disputent leur cœur : un dossier trop tranché en décevra la moitié.`;
+
+  return `<div class="detail">
+    <div class="sous-titre">CE QU'ILS AIMENT</div>
+    <p class="prose">${humeur}</p>
+
+    <div class="sous-titre">CE QU'ILS ATTENDENT</div>
+    <div class="ligne mince"><span class="faible">Note visée le jour J</span>
+      <span style="flex:1"></span><b>entre ${f.min} et ${f.max}</b></div>
+    <p class="prose">Ils n'annoncent qu'une fourchette — le vrai chiffre, tu ne
+      le connaîtras qu'au résultat.</p>
+    <p class="prose">Six emplacements à remplir : lieu, robe, costume,
+      décoration, traiteur, musique. <b>Un emplacement vide coûte plus cher
+      qu'un choix moyen.</b></p>
+
+    <div class="sous-titre">LEUR BUDGET</div>
+    <div class="ligne mince"><span class="faible">${p.invites} invités</span>
+      <span style="flex:1"></span><b>${fmt(p.budget)} €</b>
+      <span class="faible">soit ${fmt(parTete)} € par tête</span></div>
+    <p class="prose">Tu n'engages que les prestataires — le stock, tu l'as déjà
+      payé. <b>Dépenser trop peu compte autant que dépenser trop</b> : un couple
+      qui a mis la somme sur la table veut la voir.</p>
+
+    <div class="sous-titre">LE CALENDRIER</div>
+    <div class="ligne mince"><span class="faible">Jour J</span>
+      <span style="flex:1"></span><b>dans ${p.jourJPrevu - G.jour} jours</b></div>
+    <div class="ligne mince"><span class="faible">Patience</span>
+      <span style="flex:1"></span>
+      <b class="${reste <= 2 ? "prune" : ""}">${reste} jour(s)</b></div>
+    <p class="prose">Passé ce délai ils vont voir un concurrent, et la place
+      qu'ils tenaient dans ton carnet se libère.</p>
+  </div>`;
 }
 
 function pClients(G){
@@ -377,6 +446,7 @@ function pClients(G){
 
 function ficheProspect(p, G, cap){
   const plein = G.contrats.length >= cap;
+  const ouvert = vue.prospectOuvert === p.id;
   return `<div class="bloc">
     <div class="ligne">
       <i class="vign" style="${R.styleSprite(R.vignetteMariee(p, null), 30)}"></i>
@@ -390,11 +460,14 @@ function ficheProspect(p, G, cap){
         ${ech(STYLE[Clients.styleDominant(p)].txt)}</span>
     </div>
     ${gouts(p)}
+    ${ouvert ? ceQuIlsVeulent(p, G) : ""}
     <div class="ligne">
       <span class="faible">Ils attendront ${p.expireLe - G.jour} jour(s).
         ${(() => { const f = Imprevus.fourchetteExigence(p, EXIGENCE_FLOU);
           return `Ils disent en attendre « entre ${f.min} et ${f.max} ».`; })()}</span>
       <span style="flex:1"></span>
+      <button data-act="prospect" data-id="${p.id}">
+        ${ouvert ? "replier" : "ce qu'ils veulent"}</button>
       <button data-act="refuser" data-id="${p.id}" class="danger">refuser</button>
       <button data-act="signer" data-id="${p.id}" class="or" ${plein ? "disabled" : ""}>
         ${plein ? "complet" : "signer"}</button>

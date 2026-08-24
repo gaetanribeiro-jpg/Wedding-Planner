@@ -189,11 +189,28 @@ export function deciderProspects(G){
  */
 export function amenager(G){
   const j = G.derniereJournee;
-  if(!j) return;
+  /* ⚠️ UNE BOUTIQUE SANS PLACE N'A PAS BESOIN D'UNE JOURNEE POUR LE SAVOIR.
+     Le garde-fou « on n'amenage qu'apres avoir VU une journee » existe pour la
+     symetrie avec l'oracle Python, mais il ne doit pas s'appliquer a une piece
+     vide : personne n'attend de compter ses visiteurs refoules pour comprendre
+     qu'un magasin sans portant ne sert personne. */
+  const places = G.boutique.meubles.reduce((s, m) => s + MEUBLES[m.cle].places, 0);
+  if(!j && places > 0) return;
+
+  /* ⚠️ ON NE MEUBLE PAS UNE BOUTIQUE QU'ON N'A PAS DE QUOI REMPLIR.
+     La bascule de `jouerPartie` ne suffisait pas : quand `acheter` ne trouve
+     rien d'abordable au catalogue, elle rend la main et l'argent partait
+     quand meme en meubles. L'oracle finissait ainsi avec 56 meubles et
+     3 pieces en stock — des charges a 208 par jour, et rien a vendre pour les
+     payer. L'attrait sans marchandise est une charge, pas un investissement.
+     La PREMIERE place fait exception : sans elle il n'y a aucune recette,
+     jamais, donc rien ne peut demarrer. */
+  if(places > 0 && G.stock.length < STOCK_PLANCHER(G)) return;
+
   const dispo = G.argent - RESERVE(G.palier);
   if(dispo <= 0) return;
 
-  const manquePlaces = j.refoules > 0;
+  const manquePlaces = places === 0 || (j && j.refoules > 0);
   const cat = Object.keys(MEUBLES)
     .filter(k => MEUBLES[k].palier <= G.palier && MEUBLES[k].prix <= dispo)
     .filter(k => manquePlaces ? MEUBLES[k].places > 0 : MEUBLES[k].attrait > 0);
@@ -239,6 +256,13 @@ export function amenager(G){
    boutique — les ventes creusent, les achats rebouchent, et le niveau se
    stabilise la ou le joueur l'a decide. */
 const STOCK_VISE = palier => 14 + 9 * palier;
+
+/* Le PLANCHER de stock : trois emplacements de stock par dossier (robe,
+   costume, decoration), fois le nombre de dossiers qu'on mene de front. En
+   dessous, les dossiers ont des trous — et un emplacement vide coute plus cher
+   qu'un choix moyen. C'est le seuil en dessous duquel un joueur arrete de
+   meubler et va au fournisseur. */
+const STOCK_PLANCHER = G => 3 * capacite(G.palier, G.equipe, G.jour);
 
 export function acheter(G){
   const dispo = G.argent - RESERVE(G.palier);
@@ -339,8 +363,19 @@ export function jouerPartie(gr, jourMax = 6000){
 
     deciderProspects(G);
     for(const ctr of G.contrats) remplirDossier(G, ctr);
-    acheter(G);
-    amenager(G);
+    /* ⚠️ MEUBLES ET STOCK SE DISPUTENT LE MEME ARGENT, et celui qui court en
+       premier prend tout — les deux achats descendent jusqu'a la reserve.
+       Mesure a l'appui, sur une boutique vide au depart : stock d'abord, une
+       graine sur vingt finissait a 12 000 jours avec ZERO meuble (aucune
+       place, donc aucune recette, donc jamais de quoi poser la premiere) ;
+       meubles d'abord, deux autres finissaient avec 41 meubles et 3 pieces en
+       stock (des dossiers a trous, la moitie des mariages rates).
+       Les deux sont des parties perdues, et aucun joueur ne joue ni l'une ni
+       l'autre. Ce n'est donc pas un ORDRE qu'il faut, c'est une BASCULE : tant
+       qu'on n'a pas de quoi habiller les dossiers qu'on porte, le stock
+       passe devant ; une fois ce plancher tenu, c'est la place qui manque. */
+    if(G.stock.length < STOCK_PLANCHER(G)){ acheter(G); amenager(G); }
+    else                                  { amenager(G); acheter(G); }
     gererEquipe(G);
 
     for(const e of S.tick(G)) if(e.type === "jourJ"){

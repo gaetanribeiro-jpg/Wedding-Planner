@@ -22,13 +22,17 @@ export function boutiqueInitiale(){
   return {
     l: BOUTIQUE.LARGEUR,
     h: BOUTIQUE.HAUTEUR,
-    // Chaque meuble : { cle, gx, gy }. Le sol et les murs ne sont pas des
-    // meubles : ils appartiennent au decor et ne rapportent rien.
-    meubles: [
-      { cle:"portant",   gx:0, gy:0 },
-      { cle:"comptoir",  gx:8, gy:4 },
-      { cle:"miroir",    gx:0, gy:5 },
-    ],
+    /* Chaque meuble : { cle, gx, gy }. Le sol et les murs ne sont pas des
+       meubles : ils appartiennent au decor et ne rapportent rien.
+
+       ⚠️ ON DEMARRE SUR UNE PIECE VIDE. Trois meubles poses d'avance
+       repondaient a la premiere question du jeu — « qu'est-ce que je mets, et
+       ou ? » — avant que le joueur ait pu se la poser. Une boutique vide la
+       lui rend, et le premier jour sans une seule place servie enseigne le
+       plafond des places mieux qu'un texte.
+       Consequence a garder en tete : au jour 1, TOUS les visiteurs repartent.
+       C'est voulu, et c'est mesure — la completion reste a 100 %. */
+    meubles: [],
   };
 }
 

@@ -237,7 +237,19 @@ const deUtf8 = o => new TextDecoder().decode(new Uint8Array(o));
    (un octet), bit a 0 = reference (deux octets : 12 bits d'offset, 4 bits de
    longueur moins trois). */
 
-const FENETRE = 4096, LONG_MAX = 18, LONG_MIN = 3;
+/* ⚠️ LE DECALAGE TIENT SUR 12 BITS, donc il va de 1 a 4095 — PAS a 4096.
+   Premiere version : la fenetre de recherche remontait a `i - FENETRE`, donc
+   un recouvrement pouvait etre trouve a exactement 4096 octets. A l'encodage,
+   `(4096 >> 4) & 255` vaut 0 et `(4096 & 15) << 4` vaut 0 : le decalage sort
+   comme ZERO. Au decodage, `debut = out.length - 0` pointe apres la fin du
+   tampon, la copie ramene des `undefined`, et la fin de la chaine part en
+   fumee.
+   Il faut plus de 4 ko d'historique pour qu'un tel recouvrement existe : les
+   petites parties passaient, les grosses rendaient un code que le jeu
+   refusait lui-meme avec « Code abime : il a ete tronque a la copie ». Le code
+   etait intact ; c'est le compresseur qui mentait.
+   La fenetre UTILE vaut donc FENETRE - 1. */
+const FENETRE = 4096, DECALAGE_MAX = FENETRE - 1, LONG_MAX = 18, LONG_MIN = 3;
 
 export function compresser(src){
   const out = [];
@@ -250,7 +262,7 @@ export function compresser(src){
       // Recherche du plus long recouvrement dans la fenetre. Bornee : une
       // recherche exhaustive sur 4 ko rendrait la sauvegarde perceptible.
       let meilleurLong = 0, meilleurOff = 0;
-      const debut = Math.max(0, i - FENETRE);
+      const debut = Math.max(0, i - DECALAGE_MAX);
       for(let j = i - 1; j >= debut; j--){
         if(src[j] !== src[i]) continue;
         let l = 1;
@@ -281,10 +293,16 @@ export function decompresser(src){
       if(drapeaux & (1 << bit)){
         out.push(src[i++]);
       }else{
+        // Une reference fait DEUX octets : s'il n'en reste qu'un, le flux est
+        // tronque pour de vrai. On s'arrete net plutot que de lire `undefined`
+        // et de rendre une chaine a moitie juste — c'est l'empreinte qui doit
+        // annoncer le probleme, pas un texte silencieusement faux.
+        if(i + 1 >= src.length) return out;
         const a = src[i++], b = src[i++];
         const off = (a << 4) | (b >> 4);
         const len = (b & 15) + LONG_MIN;
         const debut = out.length - off;
+        if(off === 0 || debut < 0) return out;
         // Copie octet par octet : un recouvrement peut se chevaucher avec
         // lui-meme (c'est ainsi qu'on encode une repetition longue).
         for(let k = 0; k < len; k++) out.push(out[debut + k]);

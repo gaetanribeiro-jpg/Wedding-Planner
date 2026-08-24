@@ -65,7 +65,30 @@ function ecranTitre(){
       if(!chargee) return UI.dire("La sauvegarde est illisible.");
       demarrer(chargee);
     }else if(b.dataset.t === "nouvelle"){
-      demarrer(S.nouvellePartie(undefined, "L'Atelier d'Élise"));
+      // ⚠️ Branche NOMMEE, comme les autres : c'est un `else` nu qui avait
+      // rendu le code de partie inutilisable (piege n°17).
+      $("#titre-zone").innerHTML = `
+        <div class="panneau">
+          <span class="etiq">LE NOM DE TON ATELIER</span>
+          <div class="ligne">
+            <input id="champ-nom" maxlength="28" value="L'Atelier d'Élise"
+                   placeholder="L'Atelier d'Élise" autocomplete="off">
+          </div>
+          <div class="ligne">
+            <span class="faible">Il s'affichera partout, et sur ton stand au
+              Salon du Mariage.</span>
+            <span style="flex:1"></span>
+            <button data-t="valider-nom" class="or">ouvrir la boutique</button>
+          </div>
+        </div>`;
+      const champ = $("#champ-nom");
+      champ.focus();
+      champ.select();
+      // Entrée vaut le bouton : personne ne va chercher la souris apres avoir
+      // tape un nom.
+      champ.addEventListener("keydown", ev => {
+        if(ev.key === "Enter") $("[data-t='valider-nom']").click();
+      });
     }else if(b.dataset.t === "code"){
       // ⚠️ Le code de partie doit etre utilisable DEPUIS L'ECRAN TITRE. Un code
       // qu'on ne peut coller que depuis une partie en cours ne sert a rien
@@ -85,6 +108,11 @@ function ecranTitre(){
             <span style="flex:1"></span>
             <button data-t="valider-code" class="or">reprendre</button></div>
         </div>`;
+    }
+    if(b.dataset.t === "valider-nom"){
+      const nom = ($("#champ-nom").value || "").trim().slice(0, 28);
+      demarrer(S.nouvellePartie(undefined, nom || "L'Atelier d'Élise"));
+      return;
     }
     if(b.dataset.t === "valider-code"){
       const r = Sv.depuisCode($("#champ-code").value);
@@ -115,11 +143,30 @@ function demarrer(partie){
  * part en escalier irregulier. On calcule donc le plus grand entier qui tient
  * dans la largeur disponible, et on pose la largeur du canvas EN PIXELS.
  */
+/**
+ * Met la scene a l'echelle.
+ *
+ * ⚠️ L'ECHELLE EST UN ENTIER (piege de pixel art n°9). A facteur
+ * fractionnaire, `image-rendering:pixelated` donne des pixels de tailles
+ * inegales et le rendu se met a baver.
+ *
+ * ⚠️ Et c'est justement ce qui se passait sur telephone : le canvas natif
+ * faisait 480 px, `max-width:100%` le ramenait a ~350, soit un facteur 0,73 —
+ * fractionnaire, donc exactement ce que la regle interdit. La correction n'est
+ * pas dans le facteur, elle est dans la RESOLUTION NATIVE : un canvas qui
+ * serre la piece (340 px pour une grille qui en fait 256) tient a l'echelle 1
+ * sur un telephone, et la boutique remplit son cadre au lieu d'y flotter.
+ *
+ * La hauteur est bornee par la fenetre : un grand ecran ne doit pas repousser
+ * les onglets sous la ligne de flottaison.
+ */
 function cadrer(){
   const cv = ctx && ctx.canvas;
   if(!cv) return;
   const dispo = cv.parentElement.clientWidth;
-  const k = Math.max(1, Math.floor(dispo / cv.width));
+  const budgetH = Math.max(240, window.innerHeight * 0.62);
+  const k = Math.max(1, Math.min(Math.floor(dispo / cv.width),
+                                 Math.floor(budgetH / cv.height)));
   cv.style.width = (cv.width * k) + "px";
   cv.style.margin = "0 auto";
 }
@@ -183,7 +230,15 @@ function unJour(){
 }
 
 /* Chaque scene a son cadre. Changer la hauteur efface le canvas, donc on ne
-   la touche QUE lorsqu'elle change vraiment. */
+   la touche QUE lorsqu'elle change vraiment.
+
+   ⚠️ Ces deux hauteurs commandent la taille a l'ecran, et l'attribut `height`
+   du canvas dans ui.js n'est qu'une valeur de depart : c'est ICI que ca se
+   regle. La grille de la boutique fait 128 px de haut plus 58 de murs, d'ou
+   les 216 ; le jour J est une vue de cote qui a besoin de ciel. */
+const H_BOUTIQUE = 216;
+const H_JOURJ    = 252;
+
 function cadreScene(h){
   if(ctx.canvas.height === h) return;
   ctx.canvas.height = h;
@@ -194,7 +249,7 @@ function cadreScene(h){
 function dessiner(t){
   if(!ctx) return;
   if(anim){
-    cadreScene(252);
+    cadreScene(H_JOURJ);
     /* (3) LE PAS D'ANIMATION SUIT LA VITESSE. A 8x, une ceremonie de six
        secondes est six secondes de trop : le joueur a demande a aller vite. */
     const v = Math.max(1, G.vitesse);
@@ -207,8 +262,8 @@ function dessiner(t){
     }
     return;
   }
-  if(resultat){ cadreScene(252); R.dessinerJourJ(ctx, resultat.res, resultat.ctr, G, 1); return; }
-  cadreScene(206);
+  if(resultat){ cadreScene(H_JOURJ); R.dessinerJourJ(ctx, resultat.res, resultat.ctr, G, 1); return; }
+  cadreScene(H_BOUTIQUE);
   R.dessinerBoutique(ctx, G, UI.vue);
   UI.rafraichirFlash();
 }
@@ -289,6 +344,12 @@ function commande(act, d){
       UI.vue.onglet = "clients";
       UI.vue.dossierOuvert = UI.vue.dossierOuvert === id ? null : id;
       UI.vue.slotOuvert = null;
+      break;
+    // Deplier la fiche d'un prospect : ce que le couple veut, en toutes
+    // lettres. C'est la seule facon d'apprendre a lire un client — les listes
+    // de choix, elles, ne donneront jamais de note (decision de design n°9).
+    case "prospect":
+      UI.vue.prospectOuvert = UI.vue.prospectOuvert === id ? null : id;
       break;
     case "slot":
       UI.vue.dossierOuvert = id;

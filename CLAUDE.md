@@ -303,6 +303,45 @@ lire le code. **Le code de partie était inutilisable depuis l'écran titre**,
 c'est-à-dire exactement là où il est indispensable (piège n°3). Nommer la
 branche coûte trois mots.
 
+### 18. Un champ de N bits ne code pas sa borne supérieure
+**Le plus vicieux de la session : il a besoin d'ÉCHELLE pour se voir.**
+Le compresseur du code de partie encode un décalage sur **12 bits** — donc
+0 à 4095. Mais la fenêtre de recherche remontait à `i - 4096`, donc un
+recouvrement pouvait être trouvé à exactement 4096 : `(4096 >> 4) & 255` vaut
+0, `(4096 & 15) << 4` vaut 0, et le décalage sort **codé comme zéro**. Au
+décodage, `debut = out.length - 0` pointe après la fin du tampon, la copie
+ramène des `undefined`, et la fin de la chaîne part en fumée.
+Il faut **plus de 4 ko d'historique** pour qu'un tel recouvrement existe. Les
+petites parties passaient ; les grosses rendaient un code que le jeu refusait
+lui-même — « Code abîmé : il a été tronqué à la copie ». Le code était intact :
+c'est le compresseur qui mentait, et le message accusait le joueur.
+Deux leçons. **Une fenêtre de taille W donne des décalages 1..W, donc il faut
+W ≤ 2^N − 1**, jamais 2^N. Et **un bug qui a besoin d'échelle ne se voit pas
+sur un petit cas** : le codec se teste sur la plus grosse charge du jeu, pas
+sur « bonjour ».
+*Trouvé en voulant charger une partie de test, pas en relisant le code.*
+
+### 19. Deux dépenses qui puisent au même seau : la première sert, l'autre jeûne
+L'IA achetait du stock ET des meubles, chacune descendant jusqu'à sa réserve
+de trésorerie. Tant que la boutique démarrait meublée, ça ne se voyait pas.
+Sur une boutique **vide**, l'ordre est devenu tout :
+- stock d'abord → une graine sur vingt finissait à 12 000 jours avec **zéro
+  meuble** : aucune place, donc aucune recette, donc jamais de quoi poser la
+  première ;
+- meubles d'abord → deux autres finissaient avec **41 meubles et 3 pièces**,
+  des dossiers à trous et la moitié des mariages ratés.
+Les deux sont des parties perdues, et **aucun joueur ne joue ni l'une ni
+l'autre**. Ce n'est donc pas un ORDRE qu'il fallait, c'est une **bascule sur un
+plancher** : tant qu'on n'a pas de quoi habiller les dossiers qu'on porte
+(3 emplacements de stock × la capacité), le stock passe devant ; au-dessus,
+c'est la place qui manque.
+Il a fallu **deux** gardes, pas une : la bascule seule laissait encore fuir
+l'argent vers les meubles quand le catalogue n'offrait rien d'abordable —
+d'où « on ne meuble pas une boutique qu'on n'a pas de quoi remplir », avec la
+première place en exception puisque sans elle rien ne démarre.
+*Quand deux investissements partagent une bourse, ce n'est jamais l'ordre qu'il
+faut régler, c'est le seuil qui les départage.*
+
 ## ⚠️ Les pièges de pixel art, appris sur les maquettes
 
 Ceux-là sont propres à ce jeu, et ils ont déjà été payés une fois.
@@ -333,6 +372,12 @@ Ceux-là sont propres à ce jeu, et ils ont déjà été payés une fois.
    pas pixel art. C'est l'étape qui change tout.
 9. **L'échelle d'affichage est un entier.** À facteur fractionnaire,
    `image-rendering:pixelated` donne des pixels de tailles inégales.
+   ⚠️ *Et `max-width:100%` est un facteur fractionnaire déguisé.* Le canvas
+   faisait 480 px de large, le téléphone 350 : la règle CSS le ramenait à
+   0,73×. La correction n'est pas dans le facteur, elle est dans la
+   **résolution native** — un canvas qui serre la scène (340 px pour une
+   grille qui en fait 256) tient à l'échelle 1 sur un téléphone, et la
+   boutique remplit son cadre au lieu d'y flotter.
 10. **Une recette ne touche jamais le bord de sa grille** : le contour dérivé a
     besoin d'une rangée libre, sinon le personnage paraît coupé.
 

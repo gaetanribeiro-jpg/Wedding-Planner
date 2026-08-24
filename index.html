@@ -73,9 +73,15 @@ button.discret{background:transparent;border-color:transparent;
 button.discret:hover:not(:disabled){color:var(--encre);background:var(--p2)}
 button[data-on]{background:var(--bleu);border-color:var(--bleu-fonce);color:#fff;
   box-shadow:inset 2px 2px 0 var(--bleu-clair), inset -2px -2px 0 var(--bleu-fonce)}
-textarea{background:var(--p0);border:2px solid var(--bois);width:100%;
-         padding:9px;resize:vertical;word-break:break-all;
-         box-shadow:inset 2px 2px 0 var(--p3)}
+textarea,input[type=text],input:not([type]){background:var(--p0);
+         border:2px solid var(--bois);width:100%;font:inherit;color:inherit;
+         padding:9px;box-shadow:inset 2px 2px 0 var(--p3)}
+textarea{resize:vertical;word-break:break-all}
+input:focus-visible,textarea:focus-visible,button:focus-visible,
+.onglets span:focus-visible{outline:3px solid var(--bleu);outline-offset:2px}
+/* Le nom de l'atelier se tape une fois et se lit partout : il merite la police
+   de titre, comme le titre qu'il va devenir. */
+#champ-nom{font-family:var(--pixel);font-size:15px;letter-spacing:.04em}
 
 /* ---- chassis de jeu : un cadre de bois autour du parchemin ---- */
 .jeu{border:4px solid var(--bois);background:var(--p1);
@@ -135,6 +141,11 @@ textarea{background:var(--p0);border:2px solid var(--bois);width:100%;
 .ligne:last-child{border-bottom:0}
 .ligne.mince{padding:4px 0;border-bottom:0}
 .ligne b{color:var(--encre)}
+/* ⚠️ `.ligne` est un conteneur FLEX : une phrase qui contient un `<b>` s'y
+   coupe en morceaux, chaque bout devenant un element de flex. Une explication
+   se met dans un vrai paragraphe. */
+.prose{margin:0 0 8px;color:var(--encre2);font-size:13px;max-width:62ch}
+.prose b{color:var(--encre)}
 .sous-titre{font-family:var(--pixel);font-size:11px;color:var(--bois);
        letter-spacing:.05em;margin:14px 0 4px;padding-bottom:3px;
        border-bottom:3px solid var(--p3)}

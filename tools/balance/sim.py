@@ -176,7 +176,10 @@ class Partie:
         self.palier = 1
         self.bouche = 0.0
 
-        self.meubles = [("portant", 0, 0), ("comptoir", 8, 4), ("miroir", 0, 5)]
+        # ⚠️ La boutique demarre VIDE, comme dans le jeu. Trois meubles poses
+        # d'avance cote oracle et zero cote joueur, ce sont deux economies
+        # differentes des le premier jour — et l'ecart se compose sur 3 000.
+        self.meubles = []
         self.stock = []
         self.catalogue = []
         self.prospects = []
@@ -888,12 +891,25 @@ class Partie:
         # manque des places ou de l'attrait. Au jour 1 il n'y a pas de veille.
         # Sans cette symetrie, l'oracle Python pose un meuble de plus que le
         # JS des le premier jour, et l'ecart se compose sur 8 000 jours.
-        if self.jour == 0:
+        # EXCEPTION : une boutique vide n'a pas besoin d'une journee pour
+        # savoir qu'elle ne sert personne.
+        places = sum(K.MEUBLES[c][2] for c, _, _ in self.meubles)
+        if self.jour == 0 and places > 0:
             return
+
+        # ⚠️ On ne meuble pas une boutique qu'on n'a pas de quoi remplir. La
+        # bascule ne suffisait pas : quand `acheter` ne trouve rien d'abordable
+        # au catalogue, elle rend la main et l'argent partait quand meme en
+        # meubles. Deux graines sur vingt finissaient avec 56 meubles et
+        # 3 pieces : des charges a 208/jour et rien a vendre pour les payer.
+        # La PREMIERE place fait exception — sans elle, aucune recette jamais.
+        if places > 0 and len(self.stock) < 3 * self.capacite():
+            return
+
         dispo = self.argent - self._reserve()
         if dispo <= 0:
             return
-        manque = refoules > 0
+        manque = places == 0 or refoules > 0
         cands = [c for c, v in K.MEUBLES.items()
                  if v[4] <= self.palier and v[0] <= dispo
                  and ((v[2] > 0) if manque else (v[3] > 0))]
@@ -1111,8 +1127,18 @@ class Partie:
             self.decider()
             for c in self.contrats:
                 self.remplir(c)
-            self.acheter()
-            self.amenager(refoules)
+            # ⚠️ MEUBLES ET STOCK SE DISPUTENT LE MEME ARGENT, et celui qui
+            # court en premier prend tout. Stock d'abord : une graine sur vingt
+            # finissait avec ZERO meuble. Meubles d'abord : deux autres
+            # finissaient avec 41 meubles et 3 pieces. Il faut une BASCULE —
+            # tant qu'on n'a pas de quoi habiller les dossiers qu'on porte, le
+            # stock passe devant ; ensuite c'est la place qui manque.
+            if len(self.stock) < 3 * self.capacite():
+                self.acheter()
+                self.amenager(refoules)
+            else:
+                self.amenager(refoules)
+                self.acheter()
             self.gerer_equipe()
             refoules = self.tick()
             if self.stats["fini_le"] is not None and (
