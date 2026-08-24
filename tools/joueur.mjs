@@ -17,12 +17,15 @@
 
 import * as S from "../src/state.js";
 import { SLOTS, SLOT, MEUBLES, PALIERS, STYLES, AFFINITE_STYLES,
-         SALON as CFG_SALON, CFG, REFUS } from "../src/config.js";
+         SALON as CFG_SALON, CFG, REFUS, EXIGENCE_FLOU, ROLES,
+         SAISONS } from "../src/config.js";
 import { scorePourCouple } from "../src/stock.js";
 import { disponiblesAuPalier, estLibre, prixPresta,
          scorePrestaPourCouple } from "../src/prestataires.js";
 import { capacite } from "../src/clients.js";
 import { resoudre } from "../src/mariage.js";
+import { fourchetteExigence } from "../src/imprevus.js";
+import { placesEquipe, coutRecrue, coutFormation, enFormation } from "../src/equipe.js";
 
 /* Reserve de tresorerie : l'IA ne depense pas jusqu'au dernier euro, comme un
    joueur qui garde de quoi payer ses charges. Sans reserve, elle tombe a
@@ -63,7 +66,7 @@ export function remplirDossier(G, ctr){
     const cands = disponiblesAuPalier(slot, G.palier)
       .filter(k => estLibre(G.prestas, k, ctr.jourJ))
       .map(k => ({ k,
-        prix: prixPresta(G.prestas, k, couple.invites),
+        prix: prixPresta(G.prestas, k, couple.invites, couple.echelle),
         note: scorePrestaPourCouple(k, couple) }))
       .filter(x => x.prix <= enveloppe * 1.35
                 && ctr.depense + x.prix <= couple.budget);
@@ -112,7 +115,7 @@ export function estimer(G, couple){
       const enveloppe = couple.budget * SLOT[slot].poids / poidsTot;
       const cands = disponiblesAuPalier(slot, G.palier)
         .filter(k => estLibre(G.prestas, k, jourJ))
-        .map(k => ({ k, prix:prixPresta(G.prestas, k, couple.invites),
+        .map(k => ({ k, prix:prixPresta(G.prestas, k, couple.invites, couple.echelle),
                      note:scorePrestaPourCouple(k, couple) }))
         .filter(x => x.prix <= enveloppe * 1.35
                   && virtuel.depense + x.prix <= couple.budget);
@@ -134,28 +137,45 @@ export function estimer(G, couple){
  * qu'il libere une place du carnet tout de suite. L'IA ne refuse donc que
  * lorsque le carnet est plein — exactement le moment ou un joueur le ferait.
  */
+/**
+ * ⚠️ L'IA n'a PAS le droit de lire `couple.exigence`. Le joueur ne voit qu'une
+ * fourchette annoncee ; une IA qui lirait le chiffre vrai mesurerait une
+ * partie que personne ne peut jouer — et masquerait exactement le defaut
+ * qu'on cherche a corriger.
+ *
+ * Elle vise le MILIEU de la fourchette, pas le haut. Viser le haut, c'est la
+ * politique d'un joueur qui ne rate jamais — et qui signe deux fois moins. On
+ * mesure alors un jeu sans risque parce que l'IA refuse d'en prendre, pas
+ * parce que le jeu n'en offre pas. Le milieu est le comportement d'un joueur
+ * engage, et c'est celui qu'on veut equilibrer.
+ */
+const exigenceVue = couple => {
+  const f = fourchetteExigence(couple, EXIGENCE_FLOU);
+  return (f.min + f.max) / 2;
+};
+
 export function deciderProspects(G){
-  const marge = 8;
-  const carnetPlein = G.prospects.length >= capacite(G.palier) + CARNET_MARGE;
+  const marge = 4;
+  const carnetPlein = G.prospects.length >= capacite(G.palier, G.equipe, G.jour) + CARNET_MARGE;
 
   // Les meilleurs d'abord : signer le bon dossier avant de remplir la capacite
   // avec le premier venu, c'est le geste de base du jeu.
   const classes = G.prospects
-    .map(p => ({ p, est: estimer(G, p) }))
-    .sort((a, b) => (b.est - b.p.exigence) - (a.est - a.p.exigence));
+    .map(p => ({ p, est: estimer(G, p), vue: exigenceVue(p) }))
+    .sort((a, b) => (b.est - b.vue) - (a.est - a.vue));
 
-  for(const { p, est } of classes){
+  for(const { p, est, vue } of classes){
     if(S.capaciteRestante(G) <= 0) break;
-    if(est >= p.exigence + marge) S.signerProspect(G, p.id);
+    if(est >= vue + marge) S.signerProspect(G, p.id);
   }
 
   if(!carnetPlein) return;
   // Carnet sature : on fait le menage par le bas. Refuser coute de la
   // notoriete (decision n°5) mais rend la place a un couple qu'on saura
   // servir. Ne rien faire la bloquerait six jours.
-  for(const { p, est } of [...classes].reverse()){
-    if(G.prospects.length < capacite(G.palier) + CARNET_MARGE) break;
-    if(est < p.exigence) S.refuserProspect(G, p.id);
+  for(const { p, est, vue } of [...classes].reverse()){
+    if(G.prospects.length < capacite(G.palier, G.equipe, G.jour) + CARNET_MARGE) break;
+    if(est < vue) S.refuserProspect(G, p.id);
   }
 }
 
@@ -208,9 +228,22 @@ export function amenager(G){
  * de son stock : c'est la lecture correcte de la decision n°4, et si le jeu
  * recompensait plutot le tier le plus haut, la mesure le montrerait.
  */
+/**
+ * Acheter, c'est parier sur la VARIETE — et desormais aussi reapprovisionner :
+ * la boutique VEND le stock, donc un atelier qui n'achete plus se retrouve
+ * sans rien a proposer pour un mariage. L'IA achete donc tant qu'elle peut,
+ * exactement comme un joueur qui voit ses portants se vider.
+ */
+/* Le stock qu'un joueur RAISONNABLE garde en rayon. On n'achete pas sans fin :
+   au-dela, l'argent dort en marchandise. C'est ce qui donne son equilibre a la
+   boutique — les ventes creusent, les achats rebouchent, et le niveau se
+   stabilise la ou le joueur l'a decide. */
+const STOCK_VISE = palier => 14 + 9 * palier;
+
 export function acheter(G){
   const dispo = G.argent - RESERVE(G.palier);
   if(dispo <= 0 || !G.catalogue.length) return;
+  if(G.stock.length >= STOCK_VISE(G.palier)) return;
 
   // Couverture actuelle : combien de pieces par (slot, style).
   const couv = {};
@@ -227,8 +260,47 @@ export function acheter(G){
     const q = (a.tier * 12 + 30) / Math.max(1, a.prix) * 1000;
     return trou * 2.2 + q;
   };
-  const best = abordables.reduce((x, y) => valeur(y) > valeur(x) ? y : x);
-  S.acheterArticle(G, best.id);
+  /* On achete TANT QU'ON PEUT, pas une piece par jour : la boutique vend, et
+     un joueur qui voit ses portants se vider ne se rationne pas a un article
+     quotidien. C'est le meme geste, donc la meme mesure. */
+  let reste = dispo;
+  for(let n = 0; n < 6 && G.stock.length < STOCK_VISE(G.palier); n++){
+    const possibles = G.catalogue.filter(a => a.prix <= reste);
+    if(!possibles.length) break;
+    const best = possibles.reduce((x, y) => valeur(y) > valeur(x) ? y : x);
+    if(!S.acheterArticle(G, best.id).ok) break;
+    reste -= best.prix;
+  }
+}
+
+/* --------------------------------------------------------------- l'equipe
+   ⚠️ Piege herite n°5 : si le joueur peut recruter et former, l'IA doit le
+   faire aussi. Sans ca, on mesurerait un jeu ou l'equipe n'existe pas — et
+   toute la courbe de la basse saison serait une fiction. */
+
+export function gererEquipe(G){
+  const saison = SAISONS[Math.floor(G.jour / CFG.JOURS_PAR_SAISON) % SAISONS.length];
+  const dispo = G.argent - RESERVE(G.palier);
+
+  // Recruter quand il reste une place et de la marge. On prend le role le
+  // moins represente : une equipe monocolore laisse trois effets a zero.
+  if(G.equipe.length < placesEquipe(G.palier)
+     && dispo > coutRecrue(G.equipe.length) * 2){
+    const roles = Object.keys(ROLES);
+    const compte = r => G.equipe.filter(m => m.role === r).length;
+    const cible = roles.reduce((a, b) => compte(b) < compte(a) ? b : a);
+    S.recruter(G, cible);
+    return;
+  }
+
+  // Former en BASSE SAISON seulement : un membre en formation ne produit
+  // rien, et s'en priver en ete revient a refuser des contrats.
+  if(saison !== "hiver") return;
+  const libres = G.equipe.filter(m => !enFormation(m, G.jour));
+  for(const m of libres){
+    if(G.argent - RESERVE(G.palier) < coutFormation(m.niveau)) break;
+    if(S.former(G, m.id).ok) return;
+  }
 }
 
 /* ---------------------------------------------------------------- le salon */
@@ -251,6 +323,14 @@ export function jouerSalon(G){
 export function jouerPartie(gr, jourMax = 6000){
   const G = S.nouvellePartie(gr, "L'Atelier");
   let finiLe = null;
+  /* ⚠️ LES QUATRE AXES, UN PAR UN, et la part du budget reellement depensee.
+     Une note moyenne agregee ne dit pas qu'un axe est MORT : l'axe budget a
+     valu 0 sur toutes les parties d'une mesure entiere — 15 % de la note,
+     strictement constant — sans qu'aucune metrique bronche. Un axe constant
+     est du contenu inatteignable (piege herite n°6), et il ne se voit que si
+     on le regarde separement. */
+  const axes = { elegance:[], coherence:[], emotion:[], budget:[] };
+  const parts = [];
 
   while(G.jour < jourMax){
     // L'ordre imite une session : on regle le salon s'il attend, on decide,
@@ -261,15 +341,35 @@ export function jouerPartie(gr, jourMax = 6000){
     for(const ctr of G.contrats) remplirDossier(G, ctr);
     acheter(G);
     amenager(G);
+    gererEquipe(G);
 
-    S.tick(G);
+    for(const e of S.tick(G)) if(e.type === "jourJ"){
+      for(const k in axes) axes[k].push(e.res.axes[k]);
+      parts.push(e.res.budget ? e.res.depense / e.res.budget : 0);
+    }
 
     if(finiLe === null && G.palier >= PALIERS.length) finiLe = G.jour;
-    if(finiLe !== null && G.contrats.length === 0) break;
+    // ⚠️ On s'arrete sur la queue de partie, pas sur un carnet vide : quand le
+    // joueur mene plusieurs dossiers en permanence, `contrats.length` ne
+    // retombe jamais a zero et la partie tournait jusqu'a `jourMax`. Une
+    // graine sur cinq rapportait alors 7 167 contrats en 12 000 jours et
+    // faisait exploser toutes les medianes.
+    if(finiLe !== null && (G.contrats.length === 0 || G.jour > finiLe + 60)) break;
   }
 
+  const med = l => l.length ? [...l].sort((a, b) => a - b)[l.length >> 1] : 0;
   return {
     ...S.resumeStats(G),
+    /* ⚠️ Piege herite n°6 : un contenu inatteignable n'est pas du contenu. Le
+       codex n'inscrit que ce qui a MARCHE, et rien ne garantit qu'il se
+       remplisse — c'est une consequence de la partie, pas une table qu'on
+       ouvre. On mesure donc ce que le joueur DECOUVRE reellement. */
+    codexAccords:  Object.keys(G.codex.accords).length,
+    codexPrestas:  Object.keys(G.codex.prestas).length,
+    codexFamilles: Object.keys(G.codex.familles).length,
+    codexCombos:   Object.keys(G.codex.combos).length,
+    ...Object.fromEntries(Object.keys(axes).map(k => ["axe" + k[0].toUpperCase() + k.slice(1), med(axes[k])])),
+    partBudget: +med(parts).toFixed(3),
     finiLe,
     complete: finiLe !== null,
     // Duree d'horloge a 1x : c'est la mesure a confronter a la cible de 25 h.

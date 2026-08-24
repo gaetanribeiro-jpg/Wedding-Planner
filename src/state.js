@@ -14,7 +14,7 @@
 
 import { alea, graine as poserGraine, etatAlea, setEtatAlea, clamp } from "./utils.js";
 import { CFG, PALIERS, SAISONS, SAISON, SLOTS, SLOT, MEUBLES, STOCK,
-         REFUS, CLIENTS } from "./config.js";
+         REFUS, CLIENTS, EQUIPE, ROLES, VENTE } from "./config.js";
 import * as Boutique from "./boutique.js";
 import * as Stock from "./stock.js";
 import * as Clients from "./clients.js";
@@ -22,8 +22,11 @@ import * as Presta from "./prestataires.js";
 import * as Conc from "./concurrents.js";
 import * as Salon from "./salon.js";
 import { resoudre as resoudreMariage } from "./mariage.js";
+import * as Equipe from "./equipe.js";
+import * as Imprevus from "./imprevus.js";
+import * as Codex from "./codex.js";
 
-export const VERSION = 1;
+export const VERSION = 3;
 
 /* Les champs qui se recopient tels quels a la sauvegarde. Tout le reste est
    traite a la main dans save.js. */
@@ -55,6 +58,8 @@ export function nouvellePartie(gr = (Math.random() * 4294967296) >>> 0,
     contrats: [],
     prestas: Presta.prestatairesInitiaux(),
     concurrents: Conc.concurrentsInitiaux(),
+    equipe: Equipe.equipeInitiale(),
+    codex: Codex.codexInitial(),
 
     // Refuser coute de plus en plus cher dans la meme saison.
     refusSaison: 0,
@@ -83,7 +88,8 @@ export const statsVierges = () => ({
   prospectsVus:0, prospectsPerdus:0, prospectsIgnores:0,
   noteTotale:0, recetteBoutique:0, chargesPayees:0, honoraires:0,
   achats:0, meublesPoses:0, salonsGagnes:0, salonsJoues:0,
-  visiteurs:0, refoules:0,
+  visiteurs:0, refoules:0, ventes:0, recetteVentes:0, commissions:0,
+  salaires:0, recrues:0, formations:0, imprevusSubis:0,
   jourPalier:[0,0,0,0,0],
 });
 
@@ -114,7 +120,7 @@ export function signerProspect(G, id){
   const i = G.prospects.findIndex(p => p.id === id);
   if(i < 0) return { ok:false, txt:"prospect introuvable" };
   // ⚠️ La capacite est verifiee ICI, dans la fonction qui agit.
-  if(G.contrats.length >= Clients.capacite(G.palier))
+  if(G.contrats.length >= Clients.capacite(G.palier, G.equipe, G.jour))
     return { ok:false, txt:"tu ne peux pas en mener un de plus de front" };
   const couple = G.prospects.splice(i, 1)[0];
   const ctr = Clients.signer(couple, G.jour);
@@ -198,7 +204,7 @@ export function choisirPour(G, contratId, slot, valeur){
   if(ancien != null){
     if(src === "prestataire"){
       Presta.liberer(G.prestas, ancien, ctr.jourJ);
-      ctr.depense -= Presta.prixPresta(G.prestas, ancien, ctr.couple.invites);
+      ctr.depense -= Presta.prixPresta(G.prestas, ancien, ctr.couple.invites, ctr.couple.echelle);
     }
     ctr.choix[slot] = null;
   }
@@ -222,7 +228,7 @@ export function choisirPour(G, contratId, slot, valeur){
   }else{
     Presta.reserver(G.prestas, valeur, ctr.jourJ);
   }
-  const prix = Presta.prixPresta(G.prestas, valeur, ctr.couple.invites);
+  const prix = Presta.prixPresta(G.prestas, valeur, ctr.couple.invites, ctr.couple.echelle);
   ctr.choix[slot] = valeur;
   ctr.depense += prix;
   return { ok:true, prix };
@@ -254,14 +260,64 @@ export function tick(G){
   G.jour++;
   const saison = saisonCourante(G);
 
-  /* --- la boutique tourne ------------------------------------------- */
-  const j = Boutique.journee(G.boutique, G.notoriete, saison, G.palier);
+  /* --- la boutique tourne -------------------------------------------
+     ⚠️ Les pieces ENGAGEES sur un dossier ne sont pas vendables. La regle est
+     calculee ici (seul endroit qui connait les contrats) ET reverifiee dans
+     `journee` : un controle fait d'un seul cote se contourne (piege n°5). */
+  const engages = new Set();
+  for(const c of G.contrats)
+    for(const sl of SLOTS)
+      if(SLOT[sl].source === "stock" && c.choix[sl] != null) engages.add(c.choix[sl]);
+
+  /* ⚠️ On ne vend JAMAIS la piece phare d'un emplacement.
+     Sans cette regle, la boutique liquide tout : l'offre du fournisseur et la
+     capacite d'ecoulement s'equilibrent a stock zero, plus aucun dossier n'est
+     montable, et l'oracle mesure 1 contrat en 12 000 jours. C'est le piege
+     n°4 sous un autre visage — une boucle qui se court-circuite elle-meme.
+     Une maison garde ses pieces de signature en vitrine ; elles font venir,
+     elles ne partent pas. C'est aussi ce qui garantit qu'un mariage reste
+     toujours montable, meme apres une tres bonne semaine de vente. */
+  const phares = new Set();
+  for(const sl of SLOTS){
+    if(SLOT[sl].source !== "stock") continue;
+    const dispo = G.stock.filter(a => a.slot === sl && !engages.has(a.id));
+    if(!dispo.length) continue;
+    phares.add(dispo.reduce((x, y) =>
+      Stock.qualiteBrute(y) > Stock.qualiteBrute(x) ? y : x).id);
+  }
+  const vendables = G.stock.filter(a => !engages.has(a.id) && !phares.has(a.id));
+
+  const j = Boutique.journee(G.boutique, G.notoriete, saison, G.palier,
+                             { equipe:G.equipe, jour:G.jour, vendables, engages });
   G.argent += j.net;
   G.derniereJournee = j;
   G.stats.recetteBoutique += j.recette;
   G.stats.chargesPayees += j.charges;
   G.stats.visiteurs += j.visiteurs;
   G.stats.refoules += j.refoules;
+
+  // Les pieces vendues QUITTENT le stock. C'est ce qui fait que l'argent est
+  // adosse a des marchandises et ne monte pas tout seul.
+  if(j.vendus.length){
+    for(const id of j.vendus){
+      const i = G.stock.findIndex(a => a.id === id);
+      if(i >= 0) G.stock.splice(i, 1);
+    }
+    G.stats.ventes += j.vendus.length;
+    ev.push({ type:"ventes", n:j.vendus.length });
+  }
+
+  /* --- l'equipe : salaires et formations ----------------------------
+     Le salaire tombe qu'on travaille ou non. C'est la contrepartie de la
+     capacite : une equipe trop grande coule la boutique en basse saison. */
+  const masse = Equipe.masseSalariale(G.equipe);
+  if(masse){ G.argent -= masse; G.stats.salaires += masse; }
+  for(const m of Equipe.jourEquipe(G.equipe, G.jour))
+    ev.push({ type:"formation", membre:m });
+
+  /* Les combos se decouvrent en les voyant tourner, pas en lisant une table. */
+  for(const c of Boutique.combosActifs(G.boutique))
+    if(Codex.apprendreCombo(G.codex, c.txt)) ev.push({ type:"codex", txt:c.txt });
 
   /* --- les rivaux avancent ------------------------------------------ */
   Conc.jourConcurrents(G.concurrents, G.notoriete);
@@ -274,8 +330,9 @@ export function tick(G){
      ce qui donne sa valeur au refus — refuser libere une place tout de suite,
      ignorer la bloque six jours — et ca borne le flux, qui sinon croit avec la
      notoriete jusqu'a noyer toute decision. */
-  const carnet = Clients.capacite(G.palier) + REFUS.CARNET_MARGE;
-  const n = Clients.arriveesDuJour(G.notoriete, saison, G.boucheAOreille);
+  const carnet = Clients.capacite(G.palier, G.equipe, G.jour) + REFUS.CARNET_MARGE;
+  const n = Clients.arriveesDuJour(G.notoriete, saison, G.boucheAOreille,
+                                   G.equipe, G.jour);
   G.boucheAOreille *= 0.86;            // le bouche a oreille s'eteint
   for(let i = 0; i < n; i++){
     if(G.prospects.length >= carnet){ G.stats.prospectsIgnores++; continue; }
@@ -294,6 +351,25 @@ export function tick(G){
     // Ce que ca coute, c'est la place qu'il a tenue six jours dans le carnet.
     G.stats.prospectsPerdus++;
     ev.push({ type:"perdu", couple:perdu, concurrent:chez });
+  }
+
+  /* --- les imprevus --------------------------------------------------
+     ⚠️ C'est ce qui donne ses dents au jeu. Ils tombent APRES la signature,
+     donc l'estimation faite au moment de s'engager ne peut pas les connaitre.
+     Sans eux, `estimer()` appelant `resoudre()`, le joueur predisait sa note
+     au point pres et ne ratait jamais (mesure : 0,6 % de rates). */
+  for(const ctr of G.contrats){
+    const cle = Imprevus.tirer(ctr, G.jour, G.equipe);
+    if(!cle) continue;
+    const im = Imprevus.appliquer(cle, ctr, G.jour, G.prestas);
+    if(!im) continue;
+    // La piece abimee s'use vraiment : l'effet est applique sur l'article.
+    if(im.articleId != null){
+      const a = G.stock.find(x => x.id === im.articleId);
+      if(a) a.usages += im.usures;
+    }
+    G.stats.imprevusSubis++;
+    ev.push({ type:"imprevu", contrat:ctr, imprevu:im });
   }
 
   /* --- les jours J -------------------------------------------------- */
@@ -325,9 +401,13 @@ export function tick(G){
   /* --- saison et catalogue ------------------------------------------ */
   if(G.jour % CFG.JOURS_PAR_SAISON === 0){
     G.refusSaison = 0;
-    G.catalogue = Stock.tirerCatalogue(G.palier);
     ev.push({ type:"saison", saison:saisonCourante(G) });
   }
+  // Le fournisseur repasse regulierement : sans ca, la boutique vend son
+  // stock plus vite qu'elle ne le reconstitue et il ne reste rien pour les
+  // mariages.
+  if(G.jour % STOCK.CATALOGUE_JOURS === 0)
+    G.catalogue = Stock.tirerCatalogue(G.palier);
   if(G.jour - G.dernierRefus > REFUS.OUBLI_JOURS) G.refusSaison = 0;
 
   /* --- le salon ------------------------------------------------------
@@ -356,10 +436,14 @@ export function tick(G){
 /** Le jour J d'un dossier : resolu d'un coup, puis anime par le rendu. */
 function celebrer(G, ctr){
   const parId = Object.fromEntries(G.stock.map(a => [a.id, a]));
-  const res = resoudreMariage(ctr, parId);
+  const res = resoudreMariage(ctr, parId, { equipe:G.equipe, jour:G.jour });
 
   G.argent += res.honoraires;
-  G.notoriete = Math.max(0, G.notoriete + res.notoriete);
+  G.stats.commissions += res.commission;
+  // L'attache de presse fait porter le mariage plus loin : lecture de son role.
+  const relais = 1 + Equipe.bonusNotoriete(G.equipe, G.jour);
+  G.notoriete = Math.max(0, G.notoriete
+    + (res.notoriete > 0 ? res.notoriete * relais : res.notoriete));
   G.boucheAOreille += res.boucheAOreille;
   G.stats.honoraires += res.honoraires;
   G.stats.noteTotale += res.note;
@@ -373,9 +457,52 @@ function celebrer(G, ctr){
   }
   for(const cle of res.prestas) Presta.fideliser(G.prestas, cle);
 
-  G.journal.unshift({ jour:G.jour, ...res });
+  /* Ce que l'atelier APPREND. Le codex n'inscrit que ce qui a marche — jamais
+     ce qui rate. C'est une regle de design : afficher les mauvais accords
+     donnerait la table d'affinites, et le coeur du jeu est de la deviner. */
+  res.decouvertes = Codex.apprendre(G.codex, res, ctr, parId,
+                                    Clients.styleDominant(ctr.couple));
+
+  G.journal.unshift({ jour:G.jour, ...res, imprevus:Imprevus.listeImprevus(ctr) });
   if(G.journal.length > 40) G.journal.pop();
   return res;
+}
+
+/* ------------------------------------------------------------------ equipe
+   Recruter et former sont des actions de joueur : elles passent par ici, comme
+   toutes les autres, pour que l'oracle fasse exactement le meme geste. */
+
+export function recruter(G, role){
+  if(!ROLES[role]) return { ok:false, txt:"rôle inconnu" };
+  if(G.equipe.length >= Equipe.placesEquipe(G.palier))
+    return { ok:false, txt:"pas de place pour un membre de plus" };
+  const cout = Equipe.coutRecrue(G.equipe.length);
+  if(G.argent < cout) return { ok:false, txt:"pas assez d'argent" };
+  G.argent -= cout;
+  G.stats.recrues++;
+  return { ok:true, membre: Equipe.recruter(G.equipe, role), cout };
+}
+
+export function former(G, id){
+  const m = G.equipe.find(x => x.id === id);
+  if(!m) return { ok:false, txt:"membre introuvable" };
+  if(Equipe.enFormation(m, G.jour)) return { ok:false, txt:"déjà en formation" };
+  if(m.niveau >= EQUIPE.NIVEAU_MAX) return { ok:false, txt:"déjà au sommet" };
+  const cout = Equipe.coutFormation(m.niveau);
+  if(G.argent < cout) return { ok:false, txt:"pas assez d'argent" };
+  G.argent -= cout;
+  G.stats.formations++;
+  // ⚠️ Il sera indisponible jusque-la. C'est tout l'arbitrage : former en
+  // haute saison, c'est se priver au pire moment.
+  const fin = Equipe.lancerFormation(m, G.jour);
+  return { ok:true, membre:m, cout, jusque:fin };
+}
+
+/** Le joueur remercie quelqu'un : on economise le salaire, on perd le niveau. */
+export function renvoyer(G, id){
+  const i = G.equipe.findIndex(x => x.id === id);
+  if(i < 0) return { ok:false, txt:"membre introuvable" };
+  return { ok:true, membre: G.equipe.splice(i, 1)[0] };
 }
 
 /* ------------------------------------------------------------------ salon */
@@ -407,7 +534,7 @@ export function reglerSalon(G, participe){
    Des vues derivees, pour l'interface et l'oracle. Aucune ne modifie `G`. */
 
 export const capaciteRestante = G =>
-  Clients.capacite(G.palier) - G.contrats.length;
+  Clients.capacite(G.palier, G.equipe, G.jour) - G.contrats.length;
 
 export const palierCourant = G => PALIERS[G.palier - 1];
 
@@ -443,6 +570,9 @@ export const resumeStats = G => ({
   noteMoyenne:+noteMoyenne(G).toFixed(1),
   stock:G.stock.length, meubles:G.boutique.meubles.length,
   visiteurs:G.stats.visiteurs, refoules:G.stats.refoules,
+  ventes:G.stats.ventes, commissions:Math.round(G.stats.commissions),
+  salaires:Math.round(G.stats.salaires), equipe:G.equipe.length,
+  imprevus:G.stats.imprevusSubis,
   salonsGagnes:G.stats.salonsGagnes, salonsJoues:G.stats.salonsJoues,
   recetteBoutique:Math.round(G.stats.recetteBoutique),
   honoraires:Math.round(G.stats.honoraires),

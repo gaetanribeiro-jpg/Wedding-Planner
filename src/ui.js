@@ -17,19 +17,23 @@ import { fmt } from "./utils.js";
 import * as S from "./state.js";
 import * as Sv from "./save.js";
 import { SLOTS, SLOT, STYLE, STYLES, AXES, PALIERS, MEUBLES, RARETES,
-         SALON, CFG, PRESTATAIRES, AFFIXES } from "./config.js";
+         SALON, CFG, PRESTATAIRES, AFFIXES, ROLES, EQUIPE,
+         EXIGENCE_FLOU } from "./config.js";
 import * as Stock from "./stock.js";
 import * as Presta from "./prestataires.js";
 import * as Clients from "./clients.js";
 import * as Boutique from "./boutique.js";
 import * as Salon from "./salon.js";
+import * as Equipe from "./equipe.js";
+import * as Codex from "./codex.js";
+import * as Imprevus from "./imprevus.js";
 import * as R from "./render.js";
 import { axesAffiches } from "./mariage.js";
 
 export const ONGLETS = [
   ["boutique","BOUTIQUE"], ["stock","STOCK"], ["clients","CLIENTS"],
-  ["prestataires","PRESTATAIRES"], ["salon","SALON"],
-  ["concurrents","CONCURRENTS"], ["bilan","BILAN"],
+  ["prestataires","PRESTA"], ["equipe","ÉQUIPE"], ["codex","CODEX"],
+  ["salon","SALON"], ["bilan","BILAN"],
 ];
 
 /* L'etat d'INTERFACE, distinct de l'etat de jeu : onglet courant, meuble en
@@ -187,8 +191,9 @@ function panneau(G){
     case "stock":        return pStock(G);
     case "clients":      return pClients(G);
     case "prestataires": return pPrestataires(G);
+    case "equipe":       return pEquipe(G);
+    case "codex":        return pCodex(G);
     case "salon":        return pSalon(G);
-    case "concurrents":  return pConcurrents(G);
     default:             return pBilan(G);
   }
 }
@@ -204,6 +209,9 @@ function pBoutique(G){
     ${j ? `<div class="ligne"><span>Visiteurs</span><b>${j.visiteurs}</b>
         <span class="faible">servis ${j.servis}</span>
         ${j.refoules ? `<span class="prune">refoulés ${j.refoules}</span>` : ""}</div>
+      <div class="ligne"><span>Vendu</span>
+        <b class="${j.vendus && j.vendus.length ? "or" : "faible"}">${j.vendus ? j.vendus.length : 0} pièce(s)</b>
+        <span class="faible">le stock part au détail — garde ce qu'il te faut</span></div>
       <div class="ligne"><span>Recette</span><b class="or">${fmt(j.recette)} €</b>
         <span class="faible">charges ${fmt(j.charges)} €</span>
         <b class="${j.net >= 0 ? "vert" : "prune"}">${j.net >= 0 ? "+" : ""}${fmt(j.net)} €</b></div>
@@ -321,7 +329,8 @@ function ficheProspect(p, G, cap){
     ${gouts(p)}
     <div class="ligne">
       <span class="faible">Ils attendront ${p.expireLe - G.jour} jour(s).
-        Exigence ${p.exigence}/100.</span>
+        ${(() => { const f = Imprevus.fourchetteExigence(p, EXIGENCE_FLOU);
+          return `Ils disent en attendre « entre ${f.min} et ${f.max} ».`; })()}</span>
       <span style="flex:1"></span>
       <button data-act="refuser" data-id="${p.id}" class="danger">refuser</button>
       <button data-act="signer" data-id="${p.id}" class="or" ${plein ? "disabled" : ""}>
@@ -350,8 +359,15 @@ function ficheDossier(c, G){
 }
 
 function dossierDetail(c, G){
+  const im = Imprevus.listeImprevus(c);
   return `<div class="detail">
     ${gouts(c.couple)}
+    ${im.length ? `<span class="etiq">CE QUI A CHANGÉ DEPUIS LA SIGNATURE</span>
+      ${im.map(e => `<div class="ligne prune">
+        <b style="min-width:44px">J${e.jour}</b>
+        <b style="min-width:160px">${ech(e.txt)}</b>
+        <span class="faible">${ech(e.detail)}</span>
+        ${e.effet ? `<b class="prune">${ech(e.effet)}</b>` : ""}</div>`).join("")}` : ""}
     <span class="etiq">CE QUE TU LEUR PROPOSES</span>
     <div class="slots">
       ${SLOTS.map(s => slotCase(c, s, G)).join("")}
@@ -365,43 +381,64 @@ function dossierDetail(c, G){
   </div>`;
 }
 
+/**
+ * ⚠️ UN EMPLACEMENT NE DONNE PAS LA NOTE DE LA PIECE.
+ *
+ * La version precedente affichait « 26/100 pour eux » sur chaque choix : le
+ * joueur n'avait plus qu'a lire le plus grand nombre. C'etait donner la
+ * reponse — et le coeur du jeu est justement de deviner POUR QUI une piece est
+ * faite (decision de design n°4). On montre donc ce qu'on a mis, son style, et
+ * rien de plus. Les gouts du couple sont affiches juste au-dessus : c'est
+ * l'indice, pas la solution.
+ */
 function slotCase(c, slot, G){
   const v = c.choix[slot];
   const on = vue.slotOuvert === slot && vue.dossierOuvert === c.id;
   if(v == null)
     return `<button class="slot" data-vide data-act="slot" data-id="${c.id}" data-slot="${slot}" ${on ? "data-on" : ""}>
       <u>${ech(SLOT[slot].txt)}</u><b>— à choisir —</b></button>`;
+  let nom, style;
   if(SLOT[slot].source === "stock"){
     const a = G.stock.find(x => x.id === v);
-    const note = a ? Math.round(Stock.scorePourCouple(a, c.couple)) : 0;
-    return `<button class="slot" data-act="slot" data-id="${c.id}" data-slot="${slot}" ${on ? "data-on" : ""}>
-      <u>${ech(SLOT[slot].txt)}</u><b>${a ? ech(Stock.nomArticle(a)) : "?"}</b>
-      <span class="${note >= 55 ? "vert" : note >= 35 ? "or" : "prune"}">${note}/100 pour eux</span></button>`;
+    nom = a ? Stock.nomArticle(a) : "?";
+    style = a ? a.style : null;
+  }else{
+    nom = PRESTATAIRES[v].txt;
+    style = PRESTATAIRES[v].style;
   }
-  const d = PRESTATAIRES[v];
-  const note = Math.round(Presta.scorePrestaPourCouple(v, c.couple));
   return `<button class="slot" data-act="slot" data-id="${c.id}" data-slot="${slot}" ${on ? "data-on" : ""}>
-    <u>${ech(SLOT[slot].txt)}</u><b>${ech(d.txt)}</b>
-    <span class="${note >= 55 ? "vert" : note >= 35 ? "or" : "prune"}">${note}/100 pour eux</span></button>`;
+    <u>${ech(SLOT[slot].txt)}</u><b>${ech(nom)}</b>
+    ${style ? `<span class="pill" style="border-color:${STYLE[style].couleur};color:${STYLE[style].couleur}">${ech(STYLE[style].txt)}</span>` : ""}</button>`;
 }
 
+/**
+ * ⚠️ La liste des choix n'est ni notee, ni triee par pertinence.
+ *
+ * Trier par « note pour ce couple » reviendrait a mettre la bonne reponse en
+ * premier : le joueur cliquerait la ligne du haut sans jamais regarder les
+ * gouts. On trie donc par STYLE, ce qui est une information neutre, et on
+ * laisse le joueur faire le rapprochement lui-meme.
+ *
+ * Ce qu'on affiche reste honnete et complet — style, tier, rarete, affixes,
+ * prix, disponibilite. Rien n'est cache : c'est la CONCLUSION qu'on ne tire
+ * pas a sa place.
+ */
 function choixPourSlot(c, slot, G){
   if(SLOT[slot].source === "stock"){
     const libres = G.stock.filter(a => a.slot === slot &&
       !G.contrats.some(x => x.id !== c.id && x.choix[slot] === a.id));
-    const tries = libres.map(a => ({ a, n: Stock.scorePourCouple(a, c.couple) }))
-                        .sort((x, y) => y.n - x.n);
+    const tries = [...libres].sort((a, b) =>
+      STYLES.indexOf(a.style) - STYLES.indexOf(b.style) || b.tier - a.tier);
     return `<div class="choix"><span class="etiq">${ech(SLOT[slot].txt)} — ton stock</span>
-      ${tries.map(({ a, n }) => carteArticle(a, G,
-        `<button data-act="choisir" data-id="${c.id}" data-slot="${slot}" data-v="${a.id}"
-          class="${n >= 55 ? "vert" : ""}">${Math.round(n)}/100</button>`)).join("")
+      ${tries.map(a => carteArticle(a, G,
+        `<button data-act="choisir" data-id="${c.id}" data-slot="${slot}" data-v="${a.id}">choisir</button>`)).join("")
         || `<div class="ligne faible">Aucune pièce libre pour cet emplacement.</div>`}
       ${c.choix[slot] != null ? `<button data-act="choisir" data-id="${c.id}" data-slot="${slot}" data-v="">retirer</button>` : ""}
     </div>`;
   }
   const cands = Presta.disponiblesAuPalier(slot, G.palier)
-    .map(k => Presta.fichePresta(G.prestas, k, c.jourJ, c.couple.invites, c.couple))
-    .sort((a, b) => b.score - a.score);
+    .map(k => Presta.fichePresta(G.prestas, k, c.jourJ, c.couple.invites, null))
+    .sort((a, b) => STYLES.indexOf(a.style) - STYLES.indexOf(b.style));
   return `<div class="choix"><span class="etiq">${ech(SLOT[slot].txt)} — le ${c.jourJ}</span>
     ${cands.map(p => `<div class="carte-art">
       <i class="vign" style="${R.styleSprite(R.vignettePresta(p.cle), 30)}"></i>
@@ -412,7 +449,7 @@ function choixPourSlot(c, slot, G){
         ${p.libre ? "" : `<span class="pill prune">pris par ${p.occupePar === "joueur" ? "toi" : ech(p.occupePar)}</span>`}
       </div>
       <button data-act="choisir" data-id="${c.id}" data-slot="${slot}" data-v="${p.cle}"
-        ${p.libre || p.fidelite ? "" : "disabled"}>${p.score}/100</button>
+        ${p.libre || p.fidelite ? "" : "disabled"}>réserver</button>
     </div>`).join("")}
     ${c.choix[slot] != null ? `<button data-act="choisir" data-id="${c.id}" data-slot="${slot}" data-v="">retirer</button>` : ""}
   </div>`;
@@ -430,8 +467,10 @@ function pPrestataires(G){
     ${["lieu","traiteur","musique"].map(t => `
       <div class="sous-titre">${ech(SLOT[t].txt)}</div>
       ${Presta.disponiblesAuPalier(t, G.palier).map(k => {
-        const p = Presta.fichePresta(G.prestas, k, jourJ, proche ? proche.couple.invites : 80,
-                                     proche ? proche.couple : null);
+        // ⚠️ Pas de `couple` : on ne calcule aucun score « pour eux ». La
+        // qualite et le style sont des faits ; l'accord, c'est au joueur.
+        const p = Presta.fichePresta(G.prestas, k, jourJ,
+                                     proche ? proche.couple.invites : 80, null);
         return `<div class="ligne">
           <i class="vign" style="${R.styleSprite(R.vignettePresta(k), 26)}"></i>
           <b style="min-width:150px">${ech(p.txt)}</b>
@@ -442,6 +481,123 @@ function pPrestataires(G){
             ${p.libre ? "libre" : (p.occupePar === "joueur" ? "réservé par toi" : "pris")}</span>
         </div>`;
       }).join("")}`).join("")}
+  </div>`;
+}
+
+
+/* --------------------------------------------------------------- equipe */
+
+function pEquipe(G){
+  const places = Equipe.placesEquipe(G.palier);
+  const masse = Equipe.masseSalariale(G.equipe);
+  const cout = Equipe.coutRecrue(G.equipe.length);
+  const hiver = S.saisonCourante(G) === "hiver";
+  return `<div class="deux">
+    <div class="panneau">
+      <span class="etiq">TON ÉQUIPE · ${G.equipe.length}/${places}</span>
+      <div class="ligne"><span>Masse salariale</span>
+        <b class="${masse ? "prune" : "faible"}">${fmt(masse)} € / jour</b>
+        <span class="faible">elle tombe même en basse saison</span></div>
+      ${G.equipe.map(m => ficheEquipier(m, G)).join("")
+        || `<div class="ligne faible">Tu travailles seul.</div>`}
+      <span class="etiq" style="margin-top:12px">EMBAUCHER · ${fmt(cout)} €</span>
+      ${G.equipe.length >= places
+        ? `<div class="ligne faible">Plus de place : il faut monter d'un palier.</div>`
+        : `<div class="grille-cat">
+            ${Object.entries(ROLES).map(([k, r]) => `<button class="carte"
+              data-act="recruter" data-role="${k}" ${G.argent < cout ? "disabled" : ""}>
+              <b style="color:${r.couleur}">${ech(r.txt)}</b>
+              <span class="faible">${ech(r.resume)}</span></button>`).join("")}
+          </div>`}
+    </div>
+    <div class="panneau">
+      <span class="etiq">LA FORMATION</span>
+      <div class="ligne ${hiver ? "vert" : "faible"}">
+        ${hiver ? "C'est l'hiver : personne ne se marie, c'est le moment."
+                : "Former maintenant, c'est se priver d'un bras en pleine saison."}
+      </div>
+      <div class="ligne faible">Un membre en formation ne produit rien tant
+        qu'elle dure. C'est tout l'arbitrage.</div>
+      <span class="etiq" style="margin-top:10px">CE QUE CHACUN APPORTE</span>
+      ${Object.entries(ROLES).map(([k, r]) => {
+        const n = Equipe.apport(G.equipe, k, G.jour);
+        return `<div class="ligne mince">
+          <b style="min-width:120px;color:${r.couleur}">${ech(r.txt)}</b>
+          ${jauge(n, EQUIPE.NIVEAU_MAX * 2, r.couleur)}
+          <b style="min-width:26px;text-align:right">${n}</b></div>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+
+function ficheEquipier(m, G){
+  const f = Equipe.ficheMembre(m, G.jour);
+  return `<div class="bloc">
+    <div class="ligne">
+      <b style="color:${f.couleur};min-width:110px">${ech(f.nom)}</b>
+      <span class="pill" style="border-color:${f.couleur};color:${f.couleur}">${ech(f.roleTxt)}</span>
+      <span class="faible">niveau ${f.niveau}/${f.niveauMax} · ${f.salaire} €/j</span>
+      <span style="flex:1"></span>
+      ${f.enFormation
+        ? `<span class="poudre">en formation · ${f.joursRestants} j</span>`
+        : f.peutMonter
+          ? `<button data-act="former" data-id="${f.id}" ${G.argent < f.coutFormation ? "disabled" : ""}>
+               former · ${fmt(f.coutFormation)} € · ${f.joursFormation} j</button>`
+          : `<span class="or">au sommet</span>`}
+      <button data-act="renvoyer" data-id="${f.id}" class="danger">✕</button>
+    </div>
+    <div class="ligne mince faible">${ech(f.resume)}</div>
+  </div>`;
+}
+
+/* ---------------------------------------------------------------- codex
+   ⚠️ N'affiche QUE ce qui a marche. Jamais ce qui rate, jamais un
+   avertissement. Le jeu connait les mauvais accords et doit se taire dessus :
+   les lister reviendrait a donner la table d'affinites, et deviner pour qui
+   une piece est faite est l'essentiel de ce qu'on demande au joueur. */
+
+function pCodex(G){
+  const acc = Codex.accordsConnus(G.codex);
+  const pre = Codex.prestasConnus(G.codex);
+  const fam = Codex.famillesConnues(G.codex);
+  const com = Codex.combosConnus(G.codex);
+  const av = Codex.avancement(G.codex);
+  const bloc = (titre, lignes, vide) => `<span class="etiq">${titre}</span>
+    ${lignes.length ? lignes : `<div class="ligne faible">${vide}</div>`}`;
+
+  return `<div class="deux">
+    <div class="panneau">
+      <span class="etiq">CE QUE L'ATELIER A APPRIS · ${av.trouves} entrées</span>
+      <div class="ligne faible">On ne note ici que ce qui a <b>marché</b>.
+        Ce qui ne marche pas, il faudra le découvrir en le ratant.</div>
+      ${bloc("ACCORDS DE STYLES ÉPROUVÉS",
+        acc.map(a => `<div class="ligne">
+          <span class="pastille" style="background:${a.couleurA}"></span>
+          <span class="pastille" style="background:${a.couleurB}"></span>
+          <b style="flex:1">${ech(a.txt)}</b>
+          <span class="faible">${a.n}×</span></div>`).join(""),
+        "Aucun accord retenu. Marie deux styles et regarde la cohérence.")}
+      ${bloc("COMBOS DE BOUTIQUE",
+        com.map(c => `<div class="ligne vert">${ech(c.txt)}</div>`).join(""),
+        "Aucun combo repéré. Rapproche des meubles de familles différentes.")}
+    </div>
+    <div class="panneau">
+      ${bloc("PRESTATAIRES QUI ONT PORTÉ UN MARIAGE",
+        pre.map(x => `<div class="ligne">
+          <b style="min-width:150px">${ech(x.txt)}</b>
+          <span class="pill" style="border-color:${x.couleur};color:${x.couleur}">
+            couple ${ech(x.goutTxt.toLowerCase())}</span>
+          <span class="faible">${x.n}×</span></div>`).join(""),
+        "Rien encore. Un prestataire s'inscrit ici quand l'émotion est forte.")}
+      ${bloc("PIÈCES QUI ONT FAIT MOUCHE",
+        fam.map(x => `<div class="ligne">
+          <span class="faible" style="min-width:74px">${ech(x.slotTxt)}</span>
+          <b style="min-width:120px">${ech(x.txt)}</b>
+          <span class="pill" style="border-color:${x.couleur};color:${x.couleur}">
+            couple ${ech(x.goutTxt.toLowerCase())}</span>
+          <span class="faible">${x.n}×</span></div>`).join(""),
+        "Rien encore. Une pièce s'inscrit ici quand l'élégance est forte.")}
+    </div>
   </div>`;
 }
 
@@ -464,6 +620,12 @@ function pSalon(G){
         ${jauge(Salon.scoreStand(st, t), 600, STYLE[t].couleur)}
         <b style="min-width:44px;text-align:right">${Salon.scoreStand(st, t)}</b></div>`;
     }).join("")}
+    <span class="etiq">LA COURSE À LA NOTORIÉTÉ</span>
+    ${classementLignes(G).map(r => `<div class="ligne">
+      <b style="min-width:18px;color:${r.couleur}">${r.rang}</b>
+      <b style="min-width:170px;color:${r.couleur}">${ech(r.txt)}${r.joueur ? " (toi)" : ""}</b>
+      ${jauge(r.notoriete, Math.max(...classementLignes(G).map(x => x.notoriete), 1), r.couleur)}
+      <b style="min-width:52px;text-align:right">${fmt(r.notoriete)}</b></div>`).join("")}
     <span class="etiq">PALMARÈS</span>
     ${G.salons.length ? G.salons.map(s => `<div class="ligne">
       <b style="min-width:60px">An ${s.annee}</b>
@@ -525,7 +687,12 @@ function pBilan(G){
       <div class="ligne"><span>Contrats</span><b>${st.contrats} signés</b>
         <span class="faible">${st.refuses} refusés</span></div>
       <div class="ligne"><span>Boutique</span><b class="or">${fmt(st.recetteBoutique)} €</b>
-        <span class="faible">honoraires ${fmt(st.honoraires)} €</span></div>
+        <span class="faible">${fmt(st.ventes)} pièces vendues</span></div>
+      <div class="ligne"><span>Prestations</span><b class="or">${fmt(st.honoraires)} €</b>
+        <span class="faible">dont ${fmt(st.commissions)} € de commissions</span></div>
+      <div class="ligne"><span>Salaires versés</span><b class="prune">${fmt(st.salaires)} €</b>
+        <span class="faible">${st.equipe} personne(s)</span></div>
+      <div class="ligne"><span>Imprévus subis</span><b>${st.imprevus}</b></div>
       <div class="ligne"><span>Horloge</span><b>${st.heures} h</b>
         <span class="faible">à vitesse 1×</span></div>
     </div>

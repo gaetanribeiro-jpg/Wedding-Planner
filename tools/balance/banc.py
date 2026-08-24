@@ -42,6 +42,15 @@ APPARIEMENT = [
     ("palier",       "palier"),
     ("visiteurs",    "visiteurs"),
     ("refoules",     "refoules"),
+    # ⚠️ Les trois systemes ajoutes apres la premiere mesure. Sans ces lignes,
+    # la vente, les imprevus et l'equipe pouvaient diverger d'un facteur dix
+    # entre les deux oracles sans que la parite bronche : elle ne verifie que
+    # ce qu'on lui donne a comparer.
+    ("ventes",       "ventes"),
+    ("imprevus",     "imprevus"),
+    ("equipe",       "equipe"),
+    ("axe_budget",   "axeBudget"),
+    ("part_budget",  "partBudget"),
 ]
 
 
@@ -89,6 +98,14 @@ def agreger(parties):
         "honoraires": med(col("honoraires")),
         "salons": med(col("salons")),
         "salons_gagnes": med(col("salons_gagnes")),
+        "ventes": med(col("ventes")),
+        "recette_ventes": med(col("recette_ventes")),
+        "commissions": med(col("commissions")),
+        "salaires": med(col("salaires")),
+        "equipe": med(col("equipe")),
+        "imprevus": med(col("imprevus")),
+        "part_budget": med(col("part_budget")),
+        **{"axe_" + k: med(col("axe_" + k)) for k in K.AXES},
     }
 
 
@@ -158,6 +175,33 @@ def main():
     print(f"    Recette boutique         {R['recette']:>12.0f}")
     print(f"    Honoraires               {R['honoraires']:>12.0f}   "
           + (f"{R['honoraires']/R['recette']:.1f}× la boutique" if R["recette"] else ""))
+
+    # ⚠️ « L'argent ne monte pas tout seul » est une affirmation MESURABLE :
+    # sans ventes, la recette n'est adossee a aucune marchandise.
+    print(f"\n{GRAS}  LES TROIS SYSTEMES AJOUTES{FIN}")
+    part_v = (R["recette_ventes"] / R["recette"] * 100) if R["recette"] else 0
+    print(f"    Pieces vendues           {R['ventes']:>12.0f}   "
+          + (f"{part_v:.0f} % de la recette"
+             if R["ventes"] else f"{ROUGE}aucune vente{FIN}"))
+    print(f"    Commissions prestas      {R['commissions']:>12.0f}")
+    print(f"    Imprevus subis           {R['imprevus']:>12.0f}   "
+          + ("" if R["imprevus"] else f"{ROUGE}le jeu n'a pas de dents{FIN}"))
+    print(f"    Equipe finale            {R['equipe']:>12.0f}   "
+          f"salaires {R['salaires']:.0f}")
+
+    # ⚠️ LES QUATRE AXES, UN PAR UN. Un axe constant est un quart de la note
+    # qui ne joue pas — et aucune metrique agregee ne le montre. L'axe BUDGET a
+    # valu 0 sur TOUS les mariages d'une partie entiere avant qu'on le regarde
+    # ici : les prix des prestataires ne suivaient pas le budget des couples.
+    print(f"\n{GRAS}  LES QUATRE AXES DE LA NOTE{FIN}")
+    print(f"    Part du budget depensee  {R['part_budget']:>12.2f}   "
+          + (f"{ROUGE}le budget ne contraint rien{FIN}"
+             if R["part_budget"] < 0.25 else "sain entre 0,35 et 0,70"))
+    for k in K.AXES:
+        v = R["axe_" + k]
+        print(f"    axe {k:<20} {v:>12.0f}   "
+              + (f"{ROUGE}mort — un quart de la note ne joue pas{FIN}"
+                 if v <= 2 else ""))
 
     if a.compare:
         comparer(R, a.compare)

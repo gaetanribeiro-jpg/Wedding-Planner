@@ -28,7 +28,7 @@ NOTORIETE_DEPART = 0
 CIBLE_HEURES = 11
 CIBLE_CONTRATS = (150, 250)
 CIBLE_TAUX_RATE = 0.15
-CIBLE_REFUS = (2, 8)
+CIBLE_REFUS = (7, 30)
 
 # ------------------------------------------------------------------ saisons
 SAISONS = ["printemps", "ete", "automne", "hiver"]
@@ -105,7 +105,9 @@ PRIX_EXPOSANT = 1.85
 QUALITE_BASE = 34
 QUALITE_PAR_TIER = 13
 TAUX_REVENTE = 0.45
-CATALOGUE_TAILLE = 9
+CATALOGUE_TAILLE = 10
+CATALOGUE_PAR_PALIER = 4
+CATALOGUE_JOURS = 12
 USURE_PAR_USAGE = 0.05
 USURE_PLANCHER = 0.60
 
@@ -139,18 +141,34 @@ PRESSION_PAR_PALIER = 0.055
 FIDELITE_MAX = 5
 FIDELITE_REMISE = 0.04
 FIDELITE_PRIORITE = 0.09
+# ⚠️ Un prestataire chiffre le mariage qu'il a devant lui. Sans ce facteur, la
+# part du budget reellement depensee s'effondrait avec le palier (0,29 au
+# palier 1, 0,037 au palier 5) parce que le budget est multiplie par six et pas
+# les prix : l'axe BUDGET de la note valait 0 sur TOUS les mariages.
+# Un EXPOSANT, pas un facteur : il vaut 1 en 1, donc les devis du palier 1
+# restent ceux du jeu qui finissait a 100 %. La premiere version etait un
+# facteur plat (PRIX_MULT=3) : elle triplait aussi les prix du quartier, ou le
+# budget des couples n'a pas bouge, et deux parties sur vingt restaient
+# BLOQUEES AU PALIER 1 pendant 12 000 jours (34 contrats, note 44 contre 72).
+# Courbe mesuree, 12 graines : 1,6 -> axe budget 37 ; 1,9 -> 52 ; 2,2 -> 62 ;
+# 2,6 -> FALAISE, zero partie finie sur douze. On prend 2,0, avec de la marge.
+PRESTA_AMBITION_EXPOSANT = 2.0
 
 # ------------------------------------------------------------------ clients
-PROSPECTS_PAR_JOUR = 0.16
-PROSPECT_PAR_NOTORIETE = 0.00011
-PATIENCE_JOURS = 6
-DELAI_MIN, DELAI_MAX = 9, 21
+PROSPECTS_PAR_JOUR = 0.075
+PROSPECT_PAR_NOTORIETE = 0.00003
+PATIENCE_JOURS = 10
+DELAI_MIN, DELAI_MAX = 60, 120
 BUDGET_PAR_INVITE = 118
 BUDGET_PLANCHER = 3800
 GOUT_DOMINANT = (58, 88)
 GOUT_SECOND = (22, 52)
 GOUT_RESTE = (4, 26)
-EXIGENCE_BASE = 38
+# ⚠️ Remontee de 38 a 42 en meme temps que PRESTA_PRIX_MULT : ranimer l'axe
+# budget a ajoute ~6 points a chaque note, et l'ancienne valeur avait ete
+# reglee sur un jeu ou un quart des axes valait zero. Deuxieme falaise :
+# 45 -> 12,6 h, 48 -> 18,4 h, 51 -> 33,7 h et 7/12 parties finies seulement.
+EXIGENCE_BASE = 42
 EXIGENCE_PAR_PALIER = 6.5
 CAPACITE_BASE = 3
 CAPACITE_PAR_PALIER = 1
@@ -169,8 +187,8 @@ MALUS_RATE_HONORAIRES = 0.55
 TAUX_HONORAIRES = 0.22
 BONUS_NOTE = 0.55
 NOTORIETE_BASE = 5
-NOTORIETE_PAR_NOTE = 0.13
-NOTORIETE_PAR_INVITE = 0.055
+NOTORIETE_PAR_NOTE = 0.09
+NOTORIETE_PAR_INVITE = 0.035
 BOUCHE_A_OREILLE = 0.004
 BUDGET_TOLERANCE = 1.04
 BUDGET_PENALITE = 180
@@ -224,9 +242,77 @@ GAIN_FREQUENTATION = 1.0
 VISITEURS_BASE = 3.0
 VISITEURS_PAR_NOTORIETE = 0.019
 VISITEURS_PAR_ATTRAIT = 0.070
-CHARGES_BASE = 55
-CHARGES_PAR_PALIER = 74
+CHARGES_BASE = 12
+# ⚠️ Les charges suivent la boutique qu'on TIENT, pas le palier atteint. Avec
+# un forfait par palier, une graine sur vingt finissait a 12 000 jours au
+# palier 1, notoriete 0, argent 0 : le revenu plancher d'une boutique
+# depouillee (~25/jour) etait sous le loyer (55/jour), et le palier ne
+# redescend jamais. Indexee sur les meubles, la charge se degonfle quand la
+# boutique se vide — il reste toujours un chemin de retour.
+# Mesure a 20 graines : 1,5 / 2,5 / 3,5 donnent toutes 20/20 parties finies.
+# On prend la plus HAUTE des trois — l'argent doit rester une contrainte, et
+# 3,5 est le maximum qui ne rouvre pas le piege. A 5,4 la completion retombait
+# a 14/20 : l'IA batit ~63 meubles tres tot, donc le loyer explosait des le
+# palier 2.
+CHARGES_PAR_MEUBLE = 3.5
 
+
+
+
+
+# ------------------------------------------------------------------- vente
+# ⚠️ L'argent ne monte pas tout seul : un visiteur servi a un meuble de VENTE
+# peut repartir avec une piece, qui quitte le stock.
+MARGE_VENTE = 1.45
+VENTE_CHANCE_BASE = 0.028
+VENTE_CHANCE_PAR_ATTRAIT = 0.0004
+VENTE_MALUS_PAR_TIER = 0.16
+VENTE_DECOTE_USAGE = 0.12
+COMMISSION_PRESTA = 0.18
+
+# ---------------------------------------------------------------- imprevus
+# ⚠️ Ce qui donne ses dents au jeu : ils tombent APRES la signature, donc
+# l'estimation faite au moment de s'engager ne peut pas les connaitre.
+IMPREVU_CHANCE_PAR_JOUR = 0.10
+# ⚠️ C'EST CETTE CONSTANTE QUI COMMANDE LES DENTS, pas CHANCE_PAR_JOUR.
+# Symptome du piege herite n°4 : monter la chance de 0,10 a 0,22 ne bougeait
+# le taux de rate que de 7,3 % a 9,1 %, parce que le plafond par dossier etait
+# deja atteint (2,78 imprevus pour un plafond de 3). La chance ne decide plus
+# rien des que la preparation dure 60 a 120 jours — c'est le plafond qui lie.
+# Courbe mesuree, sans falaise : 3 -> 7,3 % de rates, 4 -> 11,1 %, 5 -> 14,8 %,
+# 6 -> 20,1 %, 8 -> 23,6 %.
+IMPREVU_MAX_PAR_DOSSIER = 4
+IMPREVU_MARGE_JOURS = 2
+IMPREVUS = {
+    "defection":      {"poids": 26},
+    "invitesEnPlus":  {"poids": 22, "part": (0.15, 0.40)},
+    "exigenceMontee": {"poids": 20, "val": (4, 11)},
+    "budgetCoupe":    {"poids": 16, "part": (0.08, 0.22)},
+    "pieceAbimee":    {"poids": 16, "usures": 2},
+}
+EXIGENCE_FLOU_PART = 0.18
+EXIGENCE_FLOU_MIN = 5
+
+# ------------------------------------------------------------------ equipe
+ROLES = {
+    # role:          (places, chanceVente, elegance, coherence,
+    #                 capacite, pareImprevu, prospects, notoriete)
+    "vendeur":      (1, 0.05, 0,   0,   0,   0,    0,     0),
+    "styliste":     (0, 0,    2.6, 2.2, 0,   0,    0,     0),
+    "coordinateur": (0, 0,    0,   0,   0.5, 0.10, 0,     0),
+    "attache":      (0, 0,    0,   0,   0,   0,    0.022, 0.05),
+}
+EQUIPE_NIVEAU_MAX = 4
+COUT_RECRUE_BASE = 900
+COUT_RECRUE_PAR_MEMBRE = 700
+SALAIRE_BASE = 26
+SALAIRE_PAR_NIVEAU = 14
+COUT_FORMATION_BASE = 700
+COUT_FORMATION_PAR_NIVEAU = 850
+JOURS_FORMATION_BASE = 12
+JOURS_FORMATION_PAR_NIVEAU = 6
+PLACES_BASE = 1
+PLACES_PAR_PALIER = 1
 
 # ------------------------------------------------------------- surcharges
 # ⚠️ Piege herite n°8 : ne balaie jamais une constante pendant que tu edites

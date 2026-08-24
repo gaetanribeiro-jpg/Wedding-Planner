@@ -24,7 +24,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { jouerPartie } from "./joueur.mjs";
-import { CFG, PALIERS } from "../src/config.js";
+import { CFG, PALIERS, STYLES } from "../src/config.js";
 import { hachage } from "../src/utils.js";
 
 const ICI = dirname(fileURLToPath(import.meta.url));
@@ -108,6 +108,25 @@ const R = {
   salonsGagnes: mediane(col("salonsGagnes")),
   recetteBoutique: mediane(col("recetteBoutique")),
   honoraires:   mediane(col("honoraires")),
+  /* ⚠️ Les trois systemes ajoutes apres la premiere mesure — la vente, les
+     imprevus, l'equipe — sont agreges ICI pour etre COMPARES a l'oracle
+     Python. Un systeme qui ne figure dans aucune metrique appariee peut
+     diverger d'un facteur dix entre les deux implementations sans que le
+     banc s'en apercoive : la parite ne verifie que ce qu'on lui donne. */
+  ventes:       mediane(col("ventes")),
+  commissions:  mediane(col("commissions")),
+  salaires:     mediane(col("salaires")),
+  equipe:       mediane(col("equipe")),
+  imprevus:     mediane(col("imprevus")),
+  axeElegance:  mediane(col("axeElegance")),
+  axeCoherence: mediane(col("axeCoherence")),
+  axeEmotion:   mediane(col("axeEmotion")),
+  axeBudget:    mediane(col("axeBudget")),
+  partBudget:   mediane(col("partBudget")),
+  codexAccords:  mediane(col("codexAccords")),
+  codexPrestas:  mediane(col("codexPrestas")),
+  codexFamilles: mediane(col("codexFamilles")),
+  codexCombos:   mediane(col("codexCombos")),
   msParJour:    CFG.MS_PAR_JOUR,
 };
 
@@ -161,9 +180,36 @@ ligne("Honoraires", f(R.honoraires),
 ligne("Stock final", f(R.stock));
 ligne("Argent final", f(R.argentFinal));
 
+/* ⚠️ « L'argent ne monte pas tout seul » est une affirmation MESURABLE : si le
+   nombre de ventes est nul, la recette de la boutique n'est adossee a aucune
+   marchandise et on est revenu au robinet automatique. */
+console.log("\n\x1b[1m  LES TROIS SYSTEMES AJOUTES\x1b[0m");
+ligne("Pieces vendues", f(R.ventes),
+      R.ventes ? "" : "\x1b[31m⚠️  aucune vente : l'argent monte tout seul\x1b[0m");
+ligne("Commissions prestataires", f(R.commissions));
+ligne("Imprevus subis", f(R.imprevus),
+      R.imprevus ? "" : "\x1b[31m⚠️  aucun imprevu : le jeu n'a pas de dents\x1b[0m");
+ligne("Equipe finale", f(R.equipe), `salaires ${f(R.salaires)}`);
+
+/* ⚠️ Les quatre axes SEPAREMENT. Une note moyenne ne dit pas qu'un axe est
+   mort ; l'axe budget a valu 0 sur toute une mesure sans que rien ne bronche. */
+console.log("\n\x1b[1m  LES QUATRE AXES DE LA NOTE\x1b[0m");
+ligne("Part du budget dépensée", R.partBudget.toFixed(2),
+      R.partBudget < 0.25 ? "\x1b[31m⚠️  le budget ne contraint rien\x1b[0m" : "sain entre 0,35 et 0,70");
+for(const [k, v] of [["élégance", R.axeElegance], ["cohérence", R.axeCoherence],
+                     ["émotion", R.axeEmotion], ["budget", R.axeBudget]])
+  ligne("axe " + k, f(v),
+        v <= 2 ? "\x1b[31m⚠️  mort — un quart de la note ne joue pas\x1b[0m" : "");
+
 /* ⚠️ Piege herite n°6 : un contenu inatteignable n'est pas du contenu. On
    mesure donc ce que le joueur OBTIENT, pas ce que les tables contiennent. */
 console.log("\n\x1b[1m  CE QUE LE JOUEUR ATTEINT REELLEMENT\x1b[0m");
+const accordsPossibles = STYLES.length * (STYLES.length + 1) / 2;
+ligne("Codex — accords de styles", `${f(R.codexAccords)} / ${accordsPossibles}`,
+      R.codexAccords === 0 ? "\x1b[31m⚠️  le codex reste vide\x1b[0m" : "");
+ligne("Codex — prestataires", f(R.codexPrestas));
+ligne("Codex — familles de pièces", f(R.codexFamilles));
+ligne("Codex — combos de boutique", f(R.codexCombos));
 const parPalier = PALIERS.map(p =>
   parties.filter(x => x.palier >= p.n).length / parties.length);
 PALIERS.forEach((p, i) =>

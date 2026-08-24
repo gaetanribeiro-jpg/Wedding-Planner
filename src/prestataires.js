@@ -10,7 +10,7 @@
 
 import { alea, clamp } from "./utils.js";
 import { PRESTATAIRES, PRESTA_TYPES, AGENDA, AFFINITE_STYLES,
-         STYLE, STYLES } from "./config.js";
+         STYLE, STYLES, CLIENTS } from "./config.js";
 
 /**
  * L'etat des prestataires : pour chaque cle, un agenda (jour -> qui l'occupe)
@@ -34,8 +34,20 @@ export function disponiblesAuPalier(type, palier){
     .filter(k => PRESTATAIRES[k].type === type && PRESTATAIRES[k].palier <= palier);
 }
 
-/** Prix demande pour une date, remise de fidelite comprise. */
-export function prixPresta(etat, cle, invites){
+/**
+ * Prix demande pour une date, remise de fidelite comprise.
+ *
+ * `echelle` est l'AMBITION du couple (le `budgetMult` de son palier). Un devis
+ * se fait sur le mariage qu'on a devant soi : un chateau ne facture pas un
+ * mariage princier au tarif de la salle des fetes.
+ *
+ * ⚠️ Sans ce facteur, la part du budget reellement depensee s'effondrait avec
+ * le palier — 0,29 puis 0,037 — parce que le budget etait multiplie par six et
+ * pas les prix. L'axe BUDGET de la note valait alors 0 sur tous les mariages.
+ * Il vaut par defaut 1 pour que les appels d'affichage, qui ne connaissent pas
+ * de couple, restent lisibles.
+ */
+export function prixPresta(etat, cle, invites, echelle = 1){
   const d = PRESTATAIRES[cle];
   const t = PRESTA_TYPES[d.type];
   const remise = 1 - Math.min(AGENDA.FIDELITE_MAX, etat[cle].fidelite) * AGENDA.FIDELITE_REMISE;
@@ -43,7 +55,12 @@ export function prixPresta(etat, cle, invites){
   // un mariage de 300 personnes couterait le meme prix qu'un mariage de 40 et
   // le nombre d'invites cesserait d'etre un arbitrage.
   const parTete = d.type === "traiteur" ? invites / 80 : 1;
-  return Math.round(t.prixBase * d.prix * parTete * remise);
+  // ⚠️ Un EXPOSANT, pas un facteur : il vaut 1 en 1, donc les devis du palier 1
+  // restent ceux du jeu qui finissait a 100 %. Un facteur plat triplait aussi
+  // les prix du quartier, ou le budget des couples n'a pas bouge — et deux
+  // parties sur vingt restaient bloquees au palier 1 pour toujours.
+  const ambition = Math.pow(echelle, AGENDA.AMBITION_EXPOSANT);
+  return Math.round(t.prixBase * d.prix * parTete * ambition * remise);
 }
 
 /** Les jours qu'une reservation bloque autour du jour J (montage, demontage). */
@@ -101,8 +118,10 @@ export function concurrentsReservent(etat, jour, palier, concurrents){
     const d = PRESTATAIRES[cle];
     if(d.palier > palier) continue;                 // pas encore dans le jeu
     if(alea() > pression) continue;
-    // Ils visent l'horizon ou le joueur va chercher ses dates.
-    const cible = jour + 8 + Math.floor(alea() * 34);
+    // Ils visent l'horizon ou le joueur va chercher ses dates. Il suit le
+    // delai de preparation : viser trop court laisserait les vraies dates du
+    // joueur toujours libres, et la pression de l'agenda serait decorative.
+    const cible = jour + 10 + Math.floor(alea() * (CLIENTS.DELAI_MAX + 10));
     if(!estLibre(etat, cle, cible)) continue;
     // Un concurrent va vers les prestataires de son style : c'est ce qui rend
     // la pression LISIBLE. Une pression uniforme se lit comme du hasard pur.
@@ -147,7 +166,7 @@ export function fichePresta(etat, cle, jourJ, invites, couple){
   return {
     cle, txt:d.txt, type:d.type, qualite:d.qualite,
     style:d.style, styleTxt:STYLE[d.style].txt, couleur:STYLE[d.style].couleur,
-    prix: prixPresta(etat, cle, invites || 80),
+    prix: prixPresta(etat, cle, invites || 80, couple ? couple.echelle : 1),
     fidelite: etat[cle].fidelite,
     occupePar: qui,
     libre: !qui,

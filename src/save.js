@@ -22,9 +22,11 @@ import { hachage } from "./utils.js";
 import * as S from "./state.js";
 import { prixArticle, teinteArticle } from "./stock.js";
 import { FAMILLES } from "./config.js";
+import * as Equipe from "./equipe.js";
+import * as Codex from "./codex.js";
 
 const CLE = "jourj-partie";
-export const VERSION_SAVE = 1;
+export const VERSION_SAVE = 2;
 
 /* L'etat du stockage, lu par l'interface pour son bandeau. */
 export const etatStockage = { ok:null, raison:"", derniereEcriture:0 };
@@ -89,6 +91,12 @@ export function serialiser(G){
   s.contrats = G.contrats;
   s.prestas = G.prestas;
   s.concurrents = G.concurrents;
+  // ⚠️ Nouveaux champs de la v2 : l'equipe et le codex. Les oublier ici
+  // rechargerait une partie sans employes et sans decouvertes, sans que rien
+  // ne le signale — c'est pour ca que VERSION est passee a 2.
+  s.equipe = G.equipe;
+  s.codex = G.codex;
+  s.idMembre = Equipe.etatIdMembre();
   s.stats = G.stats;
   // Le journal et les salons sont de l'historique d'affichage : on en garde
   // assez pour l'ecran bilan, pas plus. C'est la principale source de gonfle.
@@ -109,6 +117,9 @@ export function deserialiser(s){
   G.contrats = s.contrats || [];
   G.prestas = s.prestas || {};
   G.concurrents = s.concurrents || [];
+  G.equipe = s.equipe || [];
+  G.codex = { ...Codex.codexInitial(), ...(s.codex || {}) };
+  if(s.idMembre) Equipe.setIdMembre(s.idMembre);
   G.stats = { ...S.statsVierges(), ...(s.stats || {}) };
   G.journal = s.journal || [];
   G.salons = s.salons || [];

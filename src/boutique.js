@@ -15,7 +15,8 @@
  */
 
 import { alea, clamp } from "./utils.js";
-import { MEUBLES, COMBOS, ECONOMIE, BOUTIQUE, SAISON } from "./config.js";
+import { MEUBLES, COMBOS, ECONOMIE, BOUTIQUE, SAISON, VENTE } from "./config.js";
+import { bonusPlaces, bonusChanceVente } from "./equipe.js";
 
 export function boutiqueInitiale(){
   return {
@@ -140,22 +141,71 @@ export function combosActifs(b){
 /* -------------------------------------------------------------- journee */
 
 /**
- * Une journee de boutique. Retourne le detail, pas seulement le total :
- * `servis` et `refoules` sont ce qui permet de VOIR le plafond des places.
- * Sans ces deux nombres, un joueur qui double son attrait sans ajouter de
- * place ne comprend pas pourquoi rien ne bouge.
+ * Chance qu'un visiteur reparte avec cette piece.
+ *
+ * ⚠️ Les pieces cheres se vendent MAL au comptoir : le quartier n'a pas le
+ * budget d'une piece d'exception. C'est ce qui empeche la boutique de se vider
+ * de ses meilleurs atouts toute seule — le joueur garde ses tiers hauts pour
+ * les mariages parce que le marche ne les prend pas, pas parce qu'une regle
+ * le lui interdit.
  */
-export function journee(b, notoriete, saison, palier){
+export function chanceVente(a, attrait, bonusEquipe){
+  const usure = a.usages * VENTE.DECOTE_USAGE;
+  return clamp(VENTE.CHANCE_BASE
+             + attrait * VENTE.CHANCE_PAR_ATTRAIT
+             + bonusEquipe
+             + usure                                   // le solde part vite
+             - (a.tier - 1) * VENTE.MALUS_PAR_TIER,
+             0.01, 0.85);
+}
+
+/** Prix de vente au detail : le prix catalogue plus la marge, moins l'usure. */
+export const prixVente = a =>
+  Math.round(a.prix * VENTE.MARGE * (1 - a.usages * VENTE.DECOTE_USAGE));
+
+/**
+ * Une journee de boutique.
+ *
+ * ⚠️ L'ARGENT NE MONTE PAS TOUT SEUL. Un visiteur servi a un meuble de VENTE
+ * peut repartir avec une piece du stock : la recette est alors adossee a une
+ * marchandise reelle, qui QUITTE le stock. Les meubles de service et de
+ * confort ne vendent pas — ils font rester, ce qui est deja un metier.
+ *
+ * C'est ce qui met le stock sous tension : chaque piece est a la fois une
+ * vente possible aujourd'hui et un atout possible pour un mariage. Garder ou
+ * vendre devient une decision.
+ *
+ * `vendables` est la liste des articles NON engages sur un dossier. Le filtre
+ * se fait chez l'appelant, qui seul connait les contrats — mais la regle est
+ * verifiee ici aussi, parce que c'est ici qu'on vend (piege herite n°5).
+ *
+ * Retourne le detail, pas seulement le total : `servis` et `refoules` sont ce
+ * qui permet de VOIR le plafond des places.
+ */
+export function journee(b, notoriete, saison, palier, opts = {}){
+  const equipe = opts.equipe || [];
+  const jour = opts.jour || 0;
+  const vendables = opts.vendables || [];
+  const engages = opts.engages || new Set();
+
   const visiteurs = visiteursDuJour(b, notoriete, saison);
+  const attrait = attraitTotal(b);
+  const bonusV = bonusChanceVente(equipe, jour);
 
   // Les places restantes, meuble par meuble. C'est le plafond, et il est
-  // consomme ici — la seule voie qui sert un visiteur.
+  // consomme ici — la seule voie qui sert un visiteur. Un vendeur en ajoute :
+  // c'est la lecture de son role.
   const libres = b.meubles.map(m => MEUBLES[m.cle].places);
   const servables = b.meubles
     .map((m, i) => ({ m, i }))
     .filter(({ m }) => MEUBLES[m.cle].places > 0);
+  let renfort = bonusPlaces(equipe, jour);
+  for(let i = 0; i < libres.length && renfort > 0; i++){
+    if(libres[i] > 0){ libres[i]++; renfort--; }
+  }
 
   let recette = 0, servis = 0, refoules = 0;
+  const vendus = [];
   for(let v = 0; v < visiteurs; v++){
     // Le visiteur va au premier meuble libre en partant d'un point tire :
     // un balayage toujours dans le meme ordre remplirait d'abord le meuble
@@ -169,14 +219,31 @@ export function journee(b, notoriete, saison, palier){
     if(!sert){ refoules++; continue; }
     libres[sert.i]--;
     servis++;
-    recette += MEUBLES[sert.m.cle].gain
-             * (1 + comboDe(b, sert.m))
-             * ECONOMIE.GAIN_FREQUENTATION;
+
+    const def = MEUBLES[sert.m.cle];
+    const combo = 1 + comboDe(b, sert.m);
+
+    // Le service rendu : conseil, essayage, retouches. C'est le petit flux.
+    recette += def.gain * combo * ECONOMIE.GAIN_FREQUENTATION;
+
+    // Et parfois, la vente. Elle ne se produit qu'aux meubles de VENTE.
+    if(def.cat !== "vente" || !vendables.length) continue;
+    const a = vendables[Math.floor(alea() * vendables.length)];
+    if(engages.has(a.id)) continue;               // promise a un dossier
+    if(alea() > chanceVente(a, attrait, bonusV)) continue;
+    recette += prixVente(a) * combo;
+    vendus.push(a.id);
+    // On ne vend pas deux fois la meme piece dans la journee.
+    const j = vendables.indexOf(a);
+    if(j >= 0) vendables.splice(j, 1);
   }
 
-  const charges = ECONOMIE.CHARGES_BASE + ECONOMIE.CHARGES_PAR_PALIER * (palier - 1);
+  // ⚠️ Les charges suivent la boutique qu'on TIENT, pas le palier atteint :
+  // c'est ce qui rend la faillite reversible (voir ECONOMIE dans config.js).
+  const charges = ECONOMIE.CHARGES_BASE + ECONOMIE.CHARGES_PAR_MEUBLE * b.meubles.length;
   return {
     visiteurs, servis, refoules,
+    vendus,
     recette: Math.round(recette),
     charges: Math.round(charges),
     net: Math.round(recette - charges),
@@ -200,6 +267,8 @@ export function diagnostic(b, dernier){
   const places = placesTotales(b);
   if(dernier.visiteurs < places * 0.6)
     return `Des places libres toute la journée : c'est l'attrait qui manque, pas la capacité.`;
+  if(!dernier.vendus || !dernier.vendus.length)
+    return `Personne n'a rien acheté : il faut du stock à vendre, et des meubles de vente pour le présenter.`;
   return `La boutique tourne à plein.`;
 }
 

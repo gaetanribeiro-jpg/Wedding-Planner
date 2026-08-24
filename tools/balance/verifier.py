@@ -40,6 +40,8 @@ APPARIEMENT = {
     "QUALITE_PAR_TIER":       "STOCK.QUALITE_PAR_TIER",
     "TAUX_REVENTE":           "STOCK.TAUX_REVENTE",
     "CATALOGUE_TAILLE":       "STOCK.CATALOGUE_TAILLE",
+    "CATALOGUE_PAR_PALIER":   "STOCK.CATALOGUE_PAR_PALIER",
+    "CATALOGUE_JOURS":        "STOCK.CATALOGUE_JOURS",
     "USURE_PAR_USAGE":        "STOCK.USURE_PAR_USAGE",
     "USURE_PLANCHER":         "STOCK.USURE_PLANCHER",
     "PRESSION_BASE":          "AGENDA.PRESSION_BASE",
@@ -47,6 +49,7 @@ APPARIEMENT = {
     "FIDELITE_MAX":           "AGENDA.FIDELITE_MAX",
     "FIDELITE_REMISE":        "AGENDA.FIDELITE_REMISE",
     "FIDELITE_PRIORITE":      "AGENDA.FIDELITE_PRIORITE",
+    "PRESTA_AMBITION_EXPOSANT": "AGENDA.AMBITION_EXPOSANT",
     "PROSPECTS_PAR_JOUR":     "CLIENTS.PROSPECTS_PAR_JOUR",
     "PROSPECT_PAR_NOTORIETE": "CLIENTS.PROSPECT_PAR_NOTORIETE",
     "PATIENCE_JOURS":         "CLIENTS.PATIENCE_JOURS",
@@ -91,7 +94,52 @@ APPARIEMENT = {
     "VISITEURS_PAR_NOTORIETE": "ECONOMIE.VISITEURS_PAR_NOTORIETE",
     "VISITEURS_PAR_ATTRAIT":  "ECONOMIE.VISITEURS_PAR_ATTRAIT",
     "CHARGES_BASE":           "ECONOMIE.CHARGES_BASE",
-    "CHARGES_PAR_PALIER":     "ECONOMIE.CHARGES_PAR_PALIER",
+    "CHARGES_PAR_MEUBLE":     "ECONOMIE.CHARGES_PAR_MEUBLE",
+    # --- la vente : l'argent est adosse a une marchandise -----------------
+    "MARGE_VENTE":            "VENTE.MARGE",
+    "VENTE_CHANCE_BASE":      "VENTE.CHANCE_BASE",
+    "VENTE_CHANCE_PAR_ATTRAIT": "VENTE.CHANCE_PAR_ATTRAIT",
+    "VENTE_MALUS_PAR_TIER":   "VENTE.MALUS_PAR_TIER",
+    "VENTE_DECOTE_USAGE":     "VENTE.DECOTE_USAGE",
+    "COMMISSION_PRESTA":      "VENTE.COMMISSION_PRESTA",
+    # --- les imprevus : ce qui donne ses dents au jeu ---------------------
+    "IMPREVU_CHANCE_PAR_JOUR": "IMPREVUS.CHANCE_PAR_JOUR",
+    "IMPREVU_MAX_PAR_DOSSIER": "IMPREVUS.MAX_PAR_DOSSIER",
+    "IMPREVU_MARGE_JOURS":    "IMPREVUS.MARGE_JOURS",
+    "EXIGENCE_FLOU_PART":     "EXIGENCE_FLOU.PART",
+    "EXIGENCE_FLOU_MIN":      "EXIGENCE_FLOU.MIN",
+    # --- l'equipe --------------------------------------------------------
+    "EQUIPE_NIVEAU_MAX":      "EQUIPE.NIVEAU_MAX",
+    "COUT_RECRUE_BASE":       "EQUIPE.COUT_RECRUE_BASE",
+    "COUT_RECRUE_PAR_MEMBRE": "EQUIPE.COUT_RECRUE_PAR_MEMBRE",
+    "SALAIRE_BASE":           "EQUIPE.SALAIRE_BASE",
+    "SALAIRE_PAR_NIVEAU":     "EQUIPE.SALAIRE_PAR_NIVEAU",
+    "COUT_FORMATION_BASE":    "EQUIPE.COUT_FORMATION_BASE",
+    "COUT_FORMATION_PAR_NIVEAU": "EQUIPE.COUT_FORMATION_PAR_NIVEAU",
+    "JOURS_FORMATION_BASE":   "EQUIPE.JOURS_FORMATION_BASE",
+    "JOURS_FORMATION_PAR_NIVEAU": "EQUIPE.JOURS_FORMATION_PAR_NIVEAU",
+    "PLACES_BASE":            "EQUIPE.PLACES_BASE",
+    "PLACES_PAR_PALIER":      "EQUIPE.PLACES_PAR_PALIER",
+}
+
+# Les deux tables ajoutees en meme temps que les systemes qu'elles reglent.
+# ⚠️ Une TABLE se verifie ligne par ligne : c'est exactement la ou l'oubli
+# passe inapercu. `occupeLeSol` sur les meubles avait deja coute 20 % d'ecart
+# entre les deux oracles pour un seul booleen non repercute.
+ROLES_CHAMPS = {
+    "vendeur":      (("PLACES", 0), ("CHANCE_VENTE", 1)),
+    "styliste":     (("ELEGANCE", 2), ("COHERENCE", 3)),
+    "coordinateur": (("CAPACITE", 4), ("PARE_IMPREVU", 5)),
+    "attache":      (("PROSPECTS", 6), ("NOTORIETE", 7)),
+}
+
+# nom python -> (cle JS, champ JS) pour chaque entree de la table d'imprevus.
+IMPREVU_CHAMPS = {
+    "defection":      (("poids", "poids"),),
+    "invitesEnPlus":  (("poids", "poids"), ("part", ("PART_MIN", "PART_MAX"))),
+    "exigenceMontee": (("poids", "poids"), ("val", ("MIN", "MAX"))),
+    "budgetCoupe":    (("poids", "poids"), ("part", ("PART_MIN", "PART_MAX"))),
+    "pieceAbimee":    (("poids", "poids"), ("usures", "USURES")),
 }
 
 DUMP = """
@@ -169,6 +217,47 @@ def main():
                 ecarts.append((f"{cle_py}.{nom}.occupeLeSol", sol_py,
                                f"{cle_js}.{nom}.sol/mural", sol_js))
 
+    # ⚠️ La table des roles : quatre lignes de huit colonnes cote Python,
+    # quatre objets a deux champs cote JS. C'est la forme la plus facile a
+    # laisser deriver, et un role mal repercute ne se voit dans aucune mesure —
+    # il change juste silencieusement l'equilibre.
+    for role, champs in ROLES_CHAMPS.items():
+        tup = K.ROLES.get(role)
+        d = js.get("ROLES", {}).get(role)
+        if tup is None or d is None:
+            manquants.append((f"ROLES.{role}", "ROLES"))
+            continue
+        for nom_js, i in champs:
+            if nom_js not in d:
+                manquants.append((f"ROLES.{role}.{nom_js}", "ROLES"))
+                continue
+            if abs(float(tup[i]) - float(d[nom_js])) > 1e-9:
+                ecarts.append((f"ROLES.{role}[{i}]", tup[i],
+                               f"ROLES.{role}.{nom_js}", d[nom_js]))
+
+    for cle, champs in IMPREVU_CHAMPS.items():
+        py = K.IMPREVUS.get(cle)
+        d = js.get("IMPREVU", {}).get(cle)
+        if py is None or d is None:
+            manquants.append((f"IMPREVUS.{cle}", "IMPREVU"))
+            continue
+        for nom_py, nom_js in champs:
+            if isinstance(nom_js, tuple):
+                paire = tuple(d.get(x) for x in nom_js)
+                if None in paire:
+                    manquants.append((f"IMPREVUS.{cle}.{nom_py}", "IMPREVU"))
+                    continue
+                if tuple(float(x) for x in py[nom_py]) != tuple(float(x) for x in paire):
+                    ecarts.append((f"IMPREVUS.{cle}.{nom_py}", py[nom_py],
+                                   f"IMPREVU.{cle}", paire))
+            else:
+                if nom_js not in d:
+                    manquants.append((f"IMPREVUS.{cle}.{nom_py}", "IMPREVU"))
+                    continue
+                if abs(float(py[nom_py]) - float(d[nom_js])) > 1e-9:
+                    ecarts.append((f"IMPREVUS.{cle}.{nom_py}", py[nom_py],
+                                   f"IMPREVU.{cle}.{nom_js}", d[nom_js]))
+
     print(f"\n{GRAS}Miroir config.py ↔ src/config.js{FIN}")
     if manquants:
         print(f"\n  {JAUNE}Non trouves cote JS :{FIN}")
@@ -184,7 +273,9 @@ def main():
         sys.exit(1)
     if manquants:
         sys.exit(1)
-    n = len(APPARIEMENT) + len(K.PALIERS) * 3 + len(K.MEUBLES) * 5
+    n = (len(APPARIEMENT) + len(K.PALIERS) * 3 + len(K.MEUBLES) * 6
+         + sum(len(v) for v in ROLES_CHAMPS.values())
+         + sum(len(v) for v in IMPREVU_CHAMPS.values()))
     print(f"  {VERT}{n} valeurs concordent. Les deux configs sont le "
           f"miroir l'une de l'autre.{FIN}\n")
 

@@ -66,10 +66,17 @@ function ecranTitre(){
       demarrer(chargee);
     }else if(b.dataset.t === "nouvelle"){
       demarrer(S.nouvellePartie(undefined, "L'Atelier d'Élise"));
-    }else{
+    }else if(b.dataset.t === "code"){
       // ⚠️ Le code de partie doit etre utilisable DEPUIS L'ECRAN TITRE. Un code
       // qu'on ne peut coller que depuis une partie en cours ne sert a rien
       // quand c'est justement le chargement qui a echoue.
+      //
+      // ⚠️ Ce test etait un `else` nu, et le bouton « reprendre » du panneau
+      // retombait dedans : il RECONSTRUISAIT le panneau — donc vidait le
+      // champ — juste avant que la ligne suivante n'aille y lire le code. Le
+      // code de partie etait donc inutilisable depuis l'ecran titre, c'est-a-
+      // dire exactement la ou il est indispensable. Un `else` attrape tout ce
+      // qu'on ajoutera plus tard : il faut nommer la branche.
       $("#titre-zone").innerHTML = `
         <div class="panneau">
           <span class="etiq">CODE DE PARTIE</span>
@@ -146,6 +153,8 @@ function unJour(){
   const ev = S.tick(G);
   for(const e of ev){
     if(e.type === "jourJ"){
+      for(const d of (e.res.decouvertes || []))
+        UI.dire("Le codex s'enrichit.", 2600);
       // ⚠️ La resolution est DEJA faite. L'animation ne fait que la rejouer :
       // elle ne peut donc pas raconter une autre issue.
       anim = { res:e.res, ctr:e.contrat, debut:performance.now() };
@@ -157,6 +166,14 @@ function unJour(){
       UI.modalSalon(G, null);
     }else if(e.type === "perdu"){
       UI.dire(`${nomCouple(e.couple)} sont partis chez ${e.concurrent.txt}.`);
+    }else if(e.type === "codex"){
+      UI.dire(`Codex : ${e.txt}`, 3600);
+    }else if(e.type === "imprevu"){
+      UI.dire(`${nomCouple(e.contrat.couple)} — ${e.imprevu.txt}. ${e.imprevu.detail}`, 4600);
+      jouer("refus");
+    }else if(e.type === "formation"){
+      UI.dire(`${e.membre.nom} passe niveau ${e.membre.niveau}.`, 3600);
+      jouer("palier");
     }else if(e.type === "decouvert"){
       UI.dire(`Découvert de ${e.dette} € : la notoriété paie l'ardoise.`, 3800);
     }
@@ -296,6 +313,27 @@ function commande(act, d){
     case "salon-fermer": UI.fermerModal(); break;
 
     case "fermer-resultat": resultat = null; break;
+
+    case "recruter": {
+      const r = S.recruter(G, d.role);
+      if(!r.ok) return UI.dire(r.txt), jouer("refus");
+      UI.dire(`${r.membre.nom} rejoint l'atelier. −${r.cout} €.`, 3200);
+      jouer("contrat");
+      break;
+    }
+    case "former": {
+      const r = S.former(G, id);
+      if(!r.ok) return UI.dire(r.txt), jouer("refus");
+      UI.dire(`${r.membre.nom} part en formation pour ${r.jusque - G.jour} jours.`, 3600);
+      jouer("palier");
+      break;
+    }
+    case "renvoyer": {
+      const r = S.renvoyer(G, id);
+      if(!r.ok) return UI.dire(r.txt);
+      UI.dire(`${r.membre.nom} quitte l'atelier.`);
+      break;
+    }
 
     case "code": {
       const c = Sv.codeDePartie(G);

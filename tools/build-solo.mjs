@@ -37,8 +37,11 @@ const SRC = join(RACINE, "src");
    Si un jour un cycle apparait, c'est ici qu'il se verra. */
 const ORDRE = [
   "utils.js", "config.js", "pixel.js", "iso.js", "sons.js",
-  "stock.js", "clients.js", "prestataires.js", "concurrents.js",
-  "boutique.js", "mariage.js", "salon.js", "state.js",
+  // equipe et codex ne dependent que de config : ils passent tot, parce que
+  // clients, boutique et mariage lisent tous les trois l'apport de l'equipe.
+  "equipe.js", "codex.js",
+  "stock.js", "prestataires.js", "imprevus.js", "clients.js",
+  "concurrents.js", "boutique.js", "mariage.js", "salon.js", "state.js",
   "gens.js", "mobilier.js", "render.js", "save.js", "tuto.js",
   "ui.js", "main.js",
 ];

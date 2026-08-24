@@ -13,7 +13,8 @@
 
 import { clamp } from "./utils.js";
 import { AXES, MARIAGE, SLOTS, SLOT, STYLES, STYLE,
-         AFFINITE_STYLES, PRESTATAIRES } from "./config.js";
+         AFFINITE_STYLES, PRESTATAIRES, VENTE, PRESTA_TYPES } from "./config.js";
+import { bonusElegance, bonusCoherence } from "./equipe.js";
 import { qualiteBrute, bonusAffixes } from "./stock.js";
 import { nomCouple, styleDominant } from "./clients.js";
 
@@ -58,6 +59,10 @@ function affiniteGouts(style, couple){
  */
 export function resoudre(ctr, stockParId, contexte = {}){
   const couple = ctr.couple;
+  // L'equipe entre ici, et pas dans un total affiche ailleurs : c'est la
+  // lecture du role de styliste (piege herite n°2).
+  const equipe = contexte.equipe || [];
+  const jour = contexte.jour || 0;
   const pieces = {};
   for(const s of SLOTS) pieces[s] = piece(ctr, s, stockParId);
 
@@ -75,6 +80,7 @@ export function resoudre(ctr, stockParId, contexte = {}){
     elegance += (p.qualite + bonus) * SLOT[s].poids;
   }
   elegance /= poidsTotal;
+  elegance += bonusElegance(equipe, jour);
   // ⚠️ Un slot vide ne vaut pas zero : il fait activement mal. Sans ca,
   // remplir six emplacements avec du mediocre serait toujours pire que d'en
   // remplir trois avec du bon, et le jeu recompenserait le dossier a trous.
@@ -100,6 +106,7 @@ export function resoudre(ctr, stockParId, contexte = {}){
 
   let coherence = 100 * (MARIAGE.PART_GOUTS * partGouts
                        + (1 - MARIAGE.PART_GOUTS) * partAccord);
+  coherence += bonusCoherence(equipe, jour);
   for(const s of remplis)
     if(pieces[s].nature === "stock") coherence += bonusAffixes(pieces[s].art, "coherence");
   for(const s of vides) coherence -= MARIAGE.PENALITE_SLOT_VIDE * 0.7;
@@ -156,9 +163,17 @@ export function resoudre(ctr, stockParId, contexte = {}){
      important apres la boucle. */
   const reussi = note >= couple.exigence;
 
+  /* Deux robinets, et ils disent deux metiers differents.
+     - Les HONORAIRES paient ton travail : ils suivent le budget et la note.
+     - La COMMISSION paie ce que tu as fait reserver : elle suit ce que tu as
+       reellement engage chez des prestataires.
+     ⚠️ C'est ce qui fait que l'argent s'accumule sur des PRESTATIONS et pas
+     sur un forfait. Un dossier ou l'on n'a rien reserve ne commissionne rien. */
   let honoraires = couple.budget * MARIAGE.TAUX_HONORAIRES
                  * (1 + MARIAGE.BONUS_NOTE * note / 100);
+  const commission = Math.round(ctr.depense * VENTE.COMMISSION_PRESTA);
   if(!reussi) honoraires *= (1 - MARIAGE.MALUS_RATE_HONORAIRES);
+  honoraires += commission;
 
   const notoriete = reussi
     ? MARIAGE.NOTORIETE_BASE
@@ -175,6 +190,7 @@ export function resoudre(ctr, stockParId, contexte = {}){
     note, axes, reussi,
     exigence: couple.exigence,
     honoraires: Math.round(honoraires),
+    commission,
     depense: ctr.depense,
     budget: couple.budget,
     notoriete: Math.round(notoriete),
@@ -231,9 +247,11 @@ function resumer(couple, axes, note, reussi, vides){
   if(vides.length >= 3)
     return `Un dossier à trous : ${vides.length} emplacements vides sur six. Ça ne pardonne pas.`;
   const pire = Object.keys(AXES).reduce((a, b) => axes[b] < axes[a] ? b : a);
-  const dom = STYLE[styleDominant(couple)].txt.toLowerCase();
   if(!reussi){
-    if(pire === "coherence") return `Ils voulaient du ${dom}. Ils ont eu autre chose.`;
+    // ⚠️ On dit QUEL AXE a lache, jamais quel style il fallait. Nommer le gout
+    // dominant ici reviendrait a donner la reponse apres coup — le joueur doit
+    // la relier lui-meme aux gouts affiches sur la fiche du couple.
+    if(pire === "coherence") return `Rien n'allait ensemble. Ça ne leur ressemblait pas.`;
     if(pire === "budget")    return `Le budget a lâché avant la fin.`;
     if(pire === "elegance")  return `Rien n'était à la hauteur de ce qu'ils avaient imaginé.`;
     return `Joli sur le papier, plat dans la salle.`;

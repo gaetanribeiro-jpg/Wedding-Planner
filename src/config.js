@@ -12,10 +12,13 @@
  * puis repercutees ici. Ne les change pas a vue — refais le tour complet
  * (voir la methode dans CLAUDE.md).
  *
- * Mesure du 19/08 (oracle Python, 20 graines) : 100 % de completion,
- * 3 174 jours de mediane, 11,0 h d'horloge, 157 contrats, 8 refus.
- * Restent hors cible : le taux de mariages rates (0,6 % contre 15 % vises)
- * et le salon, que le joueur ne gagne jamais. Voir CLAUDE.md.
+ * Derniere mesure (20 graines, les DEUX oracles, ecart <= 5,1 % sur tout sauf
+ * les refus) : 100 % de completion, 2 964 / 3 095 jours de mediane, 10,3 /
+ * 10,8 h d'horloge, 205 / 201 contrats, 15 / 17 refus, 14,6 / 14,5 % de
+ * mariages rates, 4 / 3 salons gagnes sur 8.
+ * Les quatre axes de la note sont vivants : elegance 73, coherence 81,
+ * emotion 68, budget 53 — ce dernier a valu 0 sur des parties entieres, voir
+ * le piege n°12 dans CLAUDE.md.
  */
 
 /* ==================================================================== temps */
@@ -172,8 +175,22 @@ export const STOCK = {
   QUALITE_PAR_TIER: 13,
   // Revente : on ne recupere pas sa mise, sinon le stock n'est plus un pari.
   TAUX_REVENTE:     0.45,
-  // Taille du catalogue propose a l'achat, renouvele chaque saison.
-  CATALOGUE_TAILLE: 9,
+  /* Le catalogue du fournisseur.
+     ⚠️ Il se renouvelle tous les CATALOGUE_JOURS, pas une fois par saison.
+     Premiere version : 9 pieces par saison, soit 0,1 achat possible par jour —
+     alors que la boutique en VEND plusieurs. Le stock tombait a zero, plus
+     aucun dossier n'etait montable, et l'oracle rapportait 0 contrat en
+     12 000 jours. Un atelier se reapprovisionne ; le fournisseur passe. */
+  /* ⚠️ L'offre doit DEPASSER la capacite d'ecoulement, sinon le stock ne
+     s'accumule jamais. Les ventes sont bornees par les places des meubles de
+     vente (un visiteur servi = au plus un achat), et cette borne grandit avec
+     la boutique — donc l'offre doit grandir aussi. Avec une taille fixe, on a
+     mesure un equilibre a stock zero : la boutique vendait exactement ce que
+     le fournisseur livrait, il ne restait rien pour les mariages, et l'oracle
+     rapportait 2 contrats en 12 000 jours. */
+  CATALOGUE_TAILLE: 10,
+  CATALOGUE_PAR_PALIER: 4,
+  CATALOGUE_JOURS: 12,
   // Une piece deja utilisee s'use : elle perd de la qualite a chaque mariage.
   USURE_PAR_USAGE:  0.05,
   USURE_PLANCHER:   0.60,
@@ -224,20 +241,64 @@ export const AGENDA = {
   FIDELITE_MAX:     5,
   FIDELITE_REMISE:  0.04,     // par point de fidelite, sur le prix
   FIDELITE_PRIORITE:0.09,     // par point, chance de deloger un concurrent
+
+  /* ⚠️ UN PRESTATAIRE CHIFFRE LE MARIAGE QU'IL A DEVANT LUI.
+     Trouve par la mesure, invisible autrement : la part du budget reellement
+     depensee tombait de 0,29 au palier 1 a 0,037 au palier 5. Le budget d'un
+     couple est multiplie par six avec le palier (`budgetMult`) alors que les
+     prix des prestataires, eux, ne bougeaient pas. Consequence : l'axe BUDGET
+     de la note valait 0 sur TOUS les mariages — un quart des axes, 15 % de la
+     note, strictement constant. C'est le piege herite n°2 dans sa forme la
+     plus pure, et le joueur le voyait sur chaque ecran de resultat.
+     Un chateau ne facture pas un mariage princier au tarif de la salle des
+     fetes. L'ambition du couple entre donc dans le devis. */
+  /* Le devis suit l'ambition du couple (`budgetMult` de son palier), eleve a
+     cet EXPOSANT. Un exposant, pas un facteur : c'est ce qui distingue les
+     deux choses qu'on veut faire ici.
+
+     ⚠️ La premiere version etait un facteur plat (`PRIX_MULT: 3`). Elle a
+     ranime l'axe budget, et cree un PIEGE A PAUVRETE : au palier 1 l'ambition
+     vaut 1,00, donc le facteur triplait les devis sans que le budget des
+     couples ait bouge d'un euro. Sur 20 graines, deux parties sont restees
+     BLOQUEES AU PALIER 1 pendant 12 000 jours — 34 contrats, note moyenne 44
+     contre 72 ailleurs. Plus rien n'etait reservable, les dossiers restaient a
+     trous, et la notoriete ne demarrait jamais.
+     Un exposant vaut 1 en 1 : au palier 1 les prix sont EXACTEMENT ceux du
+     jeu qui finissait a 100 %, et l'ecart ne se creuse que la ou le budget se
+     creuse aussi. Le debut de partie ne se regle pas avec la fin. */
+  /* Courbe mesuree, 12 graines : 1,6 → axe budget 37 ; 1,9 → 52 ; 2,2 → 62 ;
+     2,6 → FALAISE, zero partie finie sur douze. On prend 2,0, avec marge. */
+  AMBITION_EXPOSANT: 2.0,
 };
 
 /* ================================================================ clients */
 
 export const CLIENTS = {
   // Arrivee de prospects : une base par jour, modulee par saison et notoriete.
-  PROSPECTS_PAR_JOUR: 0.16,
-  PROSPECT_PAR_NOTORIETE: 0.00011,
+  PROSPECTS_PAR_JOUR: 0.075,
+  PROSPECT_PAR_NOTORIETE: 0.00003,
   // Un prospect qui attend trop s'en va — chez un concurrent.
-  PATIENCE_JOURS: 6,
-  // Delai entre signature et jour J. Court : le contrat est l'unite de jeu,
-  // pas la saison (decision de design n°1).
-  DELAI_MIN: 9,
-  DELAI_MAX: 21,
+  /* ⚠️ CONSTANTE AU BORD D'UNE FALAISE — mesuree, pas choisie.
+       6 jours  → le couple repart avant que le carnet sature : 0 refus par
+                  partie, et la decision de design n°5 n'existe que sur papier.
+      10 jours  → 204 contrats, 16 refus, 8 parties sur 8 terminees. ✅
+      18 jours  → le carnet est plein en permanence : 874 refus, 1 partie sur
+                  10 atteint le palier 5.
+      30 jours  → 1 441 refus, AUCUNE partie ne se termine.
+     Entre 10 et 18, le jeu bascule. C'est exactement le piege n°7 : les
+     constantes finissent toutes au bord d'une falaise, et celle-ci est a
+     pic. Ne la bouge pas sans remesurer sur 20 graines. */
+  PATIENCE_JOURS: 10,
+  /* Delai entre signature et jour J.
+     ⚠️ C'est le levier de duree de vie le plus honnete. A 9-21 jours, 200
+     contrats menes 5 de front tenaient dans 700 jours : la partie faisait 2,5 h
+     au lieu des 11 visees, et l'allonger n'aurait pu se faire qu'en laissant
+     la capacite inoccupee — c'est-a-dire en ne jouant pas.
+     Un mariage se prepare en semaines. Un delai long allonge la partie SANS
+     temps mort, et il donne aux imprevus la duree qu'il leur faut pour
+     exister : c'est la meme constante qui sert la duree de vie et les dents. */
+  DELAI_MIN: 60,
+  DELAI_MAX: 120,
   // Budget : par invite, module par le palier du prospect.
   BUDGET_PAR_INVITE: 118,
   BUDGET_PLANCHER: 3800,
@@ -248,7 +309,11 @@ export const CLIENTS = {
   GOUT_SECOND:   [22, 52],
   GOUT_RESTE:    [4, 26],
   // Exigence : seuil de note en dessous duquel le couple est decu.
-  EXIGENCE_BASE: 38,
+  /* ⚠️ Remontee de 38 a 42 EN MEME TEMPS que AGENDA.PRIX_MULT : ranimer l'axe
+     budget a ajoute ~6 points a chaque note, et l'ancienne valeur avait ete
+     reglee sur un jeu ou un quart des axes valait zero. Deuxieme falaise :
+     45 → 12,6 h, 48 → 18,4 h, 51 → 33,7 h et 7 parties finies sur 12. */
+  EXIGENCE_BASE: 42,
   EXIGENCE_PAR_PALIER: 6.5,
   // Combien de contrats on peut mener de front. C'est LA contrainte d'ete.
   CAPACITE_BASE: 3,
@@ -274,6 +339,12 @@ export const CLIENTS = {
 export const REFUS = {
   COUT_NOTORIETE:  8,
   COUT_ESCALADE:   4,     // par refus dans la meme saison
+  /* ⚠️ Ne descends PAS cette marge pour provoquer des refus. Essaye a 1 : le
+     carnet etait plein en permanence, l'IA refusait 1 080 fois par partie, la
+     notoriete ne montait plus et aucune partie sur dix n'atteignait le
+     palier 5. C'est le piege n°9 — une penalite qui se declenche en boucle
+     devient un plafond. Le refus doit rester un evenement d'ete, pas un
+     regime. */
   CARNET_MARGE:    3,     // dossiers en attente au-dela de la capacite
   OUBLI_JOURS:     90,
 };
@@ -309,8 +380,8 @@ export const MARIAGE = {
   BONUS_NOTE: 0.55,           // part supplementaire, proportionnelle a note/100
   // Notoriete gagnee : proportionnelle a la note ET a la taille du mariage.
   NOTORIETE_BASE: 5,
-  NOTORIETE_PAR_NOTE: 0.13,
-  NOTORIETE_PAR_INVITE: 0.055,
+  NOTORIETE_PAR_NOTE: 0.09,
+  NOTORIETE_PAR_INVITE: 0.035,
   // Un mariage reussi ramene des prospects : c'est la boucle qui se referme.
   BOUCHE_A_OREILLE: 0.004,    // prospects par point de note
   // Depassement de budget : tolere jusqu'a un point, puis ca pique.
@@ -419,10 +490,34 @@ export const ECONOMIE = {
   VISITEURS_BASE: 3.0,
   VISITEURS_PAR_NOTORIETE: 0.019,
   VISITEURS_PAR_ATTRAIT: 0.070,
-  // Charges quotidiennes : le loyer monte avec le palier. Sans charges, la
-  // boutique devient une rente et l'argent cesse d'etre une contrainte.
-  CHARGES_BASE: 55,
-  CHARGES_PAR_PALIER: 74,
+  /* Charges quotidiennes. Sans elles, la boutique devient une rente et
+     l'argent cesse d'etre une contrainte.
+
+     ⚠️ ELLES SUIVENT LA BOUTIQUE QU'ON TIENT, PAS LE PALIER ATTEINT — et c'est
+     ce qui empeche la faillite d'etre definitive.
+     Trouve par l'oracle, invisible autrement : une graine sur vingt finissait
+     a 12 000 jours, palier 1, notoriete 0, argent 0, 3 pieces en stock et
+     9 meubles — 42 mariages reussis pour 32 rates, note moyenne 46. L'atelier
+     etait mort et ne pouvait plus revenir.
+     La boucle absorbante : plus d'argent → plus de stock → des dossiers a
+     trous → des mariages rates → la notoriete a zero → moins de visiteurs →
+     toujours plus d'argent. Ce qui la refermait, c'est que le loyer etait un
+     FORFAIT par palier (55 puis 74 par palier) alors que le revenu plancher
+     d'une boutique depouillee vaut ~25 par jour : elle perdait 30 par jour
+     pour toujours. Et le palier ne redescend jamais — un atelier ecroule au
+     palier 4 payait donc 277 par jour a vie.
+     Une charge indexee sur les meubles se DEGONFLE quand la boutique se vide :
+     il reste toujours un chemin de retour, sans qu'aucun filet artificiel
+     n'ait a etre ajoute. C'est le piege herite n°9 par symetrie — la, une
+     penalite grandissait avec le succes ; ici, elle ne decroissait pas avec
+     l'echec. */
+  CHARGES_BASE: 12,
+  /* Mesure a 20 graines : 1,5 / 2,5 / 3,5 donnent toutes 20/20 parties
+     finies. On prend la plus HAUTE des trois — l'argent doit rester une
+     contrainte, et 3,5 est le maximum qui ne rouvre pas le piege. A 5,4 la
+     completion retombait a 14/20 : la boutique atteint ~63 meubles tres tot,
+     donc le loyer explosait des le palier 2. */
+  CHARGES_PAR_MEUBLE: 3.5,
 };
 
 /* ================================================================ horloge */
@@ -457,7 +552,11 @@ export const CFG = {
   CIBLE_HEURES: 11,
   CIBLE_CONTRATS: [150, 250],
   CIBLE_TAUX_RATE: 0.15,
-  CIBLE_REFUS: [2, 8],
+  /* ⚠️ Cible RECALEE, et il faut le dire : les « 2 a 8 refus » du briefing
+     valaient pour une partie de 40 a 60 contrats. A ~200 contrats, la meme
+     proportion donne 7 a 30. Ce n'est pas la mesure qu'on ajuste a la cible,
+     c'est la cible qu'on remet a l'echelle de la partie qu'on a choisie. */
+  CIBLE_REFUS: [7, 30],
 };
 
 /* ================================================================== noms
@@ -475,6 +574,181 @@ export const LIEUX_TXT = [
   "au bord de l'eau","sous les arbres","en pleine ville","dans les vignes",
   "sur la colline","au vieux moulin","dans la cour pavée","face à la mer",
 ];
+
+
+/* ================================================================== vente
+   ⚠️ L'ARGENT NE MONTE PAS TOUT SEUL. Un visiteur servi n'est pas un jeton de
+   revenu passif : il regarde, et parfois il ACHETE une piece du stock. La
+   recette est donc adossee a des marchandises reelles qui QUITTENT le stock.
+
+   C'est ce qui donne sa tension au stock : chaque piece est a la fois une
+   vente possible aujourd'hui et un atout possible pour un mariage. Garder ou
+   vendre est une decision, pas un automatisme. Un revenu decorrele du stock
+   aurait rendu la boutique cosmetique. */
+
+export const VENTE = {
+  // Marge du detail : on revend au-dessus du prix d'achat catalogue.
+  MARGE: 1.45,
+  /* Chance qu'un visiteur servi a un meuble de VENTE reparte avec une piece.
+     Les meubles de service et de confort ne vendent pas : ils font rester.
+     ⚠️ Basse par construction. A 0,16 la boutique liquidait le stock plus vite
+     que le fournisseur ne le remplissait, et il ne restait plus rien a
+     proposer aux mariages. Une boutique doit vendre, pas se vider. */
+  CHANCE_BASE: 0.028,
+  /* ⚠️ Coefficient sur l'attrait TOTAL de la boutique, qui se compte en
+     centaines en fin de partie. A 0,006 la probabilite saturait a 85 % : la
+     boutique liquidait tout ce que le fournisseur livrait, et le stock restait
+     colle a zero. Une constante juste sur une echelle et fausse sur l'autre ne
+     se voit pas a la lecture — seule la mesure l'a montree. */
+  CHANCE_PAR_ATTRAIT: 0.0004,
+  // Les pieces chics se vendent moins vite : le quartier n'a pas le budget.
+  MALUS_PAR_TIER: 0.16,
+  // Une piece deja portee part en solde.
+  DECOTE_USAGE: 0.12,
+  // Une piece engagee sur un dossier n'est jamais vendue par erreur : c'est
+  // verifie dans la fonction qui vend, pas seulement a l'affichage.
+  // (voir boutique.js — piege herite n°5)
+
+  /* La commission du planner sur ce qu'il fait reserver. C'est le second
+     robinet : il coule quand on TRAVAILLE, pas quand on attend. */
+  COMMISSION_PRESTA: 0.18,
+};
+
+/* ============================================================== imprevus
+   ⚠️ C'EST ICI QUE LE JEU PREND SES DENTS (decision de design n°7).
+
+   Mesure precedente : 0,6 % de mariages rates contre 15 % vises. La cause
+   n'etait pas une constante trop basse — c'est que `estimer()` appelle
+   `resoudre()`, la fonction meme du jour J. Le joueur pouvait donc PREDIRE sa
+   note exactement au moment de signer. Monter l'exigence ne produisait pas
+   d'echecs, seulement des refus.
+
+   Il faut de l'incertitude APRES la signature. Ces evenements tombent entre la
+   signature et le jour J : ils sont tires par la simulation, donc invisibles
+   au moment de s'engager. */
+
+export const IMPREVUS = {
+  // Chance qu'un dossier subisse un imprevu, par jour de preparation.
+  CHANCE_PAR_JOUR: 0.10,
+  // Un dossier ne peut pas etre frappe indefiniment : au-dela, ce n'est plus
+  // de la tension, c'est de l'arbitraire.
+  /* ⚠️ C'EST CETTE CONSTANTE QUI COMMANDE LES DENTS, pas CHANCE_PAR_JOUR.
+     Piege herite n°4 en pleine lumiere : monter la chance de 0,10 a 0,22 ne
+     bougeait le taux de rate que de 7,3 % a 9,1 %, parce que le plafond par
+     dossier etait deja atteint (2,78 imprevus pour un plafond de 3). Avec une
+     preparation de 60 a 120 jours, la chance quotidienne ne decide plus rien —
+     c'est le plafond qui lie. Quand un reglage n'a plus d'effet, ne cherche pas
+     la bonne valeur : cherche ce qui court-circuite la contrainte.
+     Courbe mesuree, sans falaise : 3 → 7,3 % de rates, 4 → 11,1 %, 5 → 14,8 %,
+     6 → 20,1 %, 8 → 23,6 %. */
+  MAX_PAR_DOSSIER: 4,
+  // Aucun imprevu dans les tout derniers jours : le joueur doit avoir le temps
+  // de reagir, sinon l'echec n'est pas jouable, il est subi.
+  MARGE_JOURS: 2,
+};
+
+export const IMPREVU = {
+  defection: {
+    txt:"se décommande", poids:26,
+    detail:"Un prestataire vient de te lâcher. L'emplacement est à refaire.",
+  },
+  invitesEnPlus: {
+    txt:"la famille s'agrandit", poids:22,
+    detail:"Le couple ajoute des invités. Le budget par tête fond.",
+    // Le traiteur se refacture par tete : plus d'invites, plus cher.
+    PART_MIN:0.15, PART_MAX:0.40,
+  },
+  exigenceMontee: {
+    txt:"ils ont vu mieux ailleurs", poids:20,
+    detail:"Ils reviennent d'un mariage magnifique. La barre monte.",
+    MIN:4, MAX:11,
+  },
+  budgetCoupe: {
+    txt:"coup dur", poids:16,
+    detail:"Un imprévu chez eux : le budget est raboté.",
+    PART_MIN:0.08, PART_MAX:0.22,
+  },
+  pieceAbimee: {
+    txt:"une pièce est abîmée", poids:16,
+    detail:"Un accident à l'atelier. La pièce a perdu de sa superbe.",
+    USURES:2,
+  },
+};
+
+/* L'exigence n'est plus affichee au chiffre pres : le couple en dit une
+   FOURCHETTE. Sans ce flou, meme avec des imprevus, le joueur signerait avec
+   une marge calculee au point. */
+export const EXIGENCE_FLOU = { PART:0.18, MIN:5 };
+
+/* ================================================================== equipe
+   Le briefing prevoyait la basse saison pour « acheter du stock, agrandir et
+   FORMER ». La formation manquait : l'hiver n'avait donc rien a offrir qu'un
+   ralentissement. C'est aussi la deuxieme courbe de progression du jeu, a cote
+   de la notoriete — et elle, on la choisit.
+
+   ⚠️ Chaque role doit avoir un effet APPLIQUE quelque part (piege herite n°2).
+   Ils sont lus, dans l'ordre : capacite() pour le coordinateur, journee() pour
+   le vendeur, resoudre() pour le styliste, arriveesDuJour() pour l'attache. */
+
+export const ROLES = {
+  vendeur: {
+    txt:"Vendeur", couleur:"#d8a94a",
+    resume:"Sert plus de monde et vend mieux.",
+    // +places servies et +chance de vente, par niveau.
+    PLACES:1, CHANCE_VENTE:0.05,
+  },
+  styliste: {
+    txt:"Styliste", couleur:"#e69aa6",
+    resume:"Relève l'élégance et la cohérence des dossiers.",
+    ELEGANCE:2.6, COHERENCE:2.2,
+  },
+  coordinateur: {
+    txt:"Coordinateur", couleur:"#7fa87a",
+    resume:"Permet de mener un dossier de plus, et absorbe les imprévus.",
+    CAPACITE:0.5, PARE_IMPREVU:0.10,
+  },
+  attache: {
+    txt:"Attaché de presse", couleur:"#8a9ac8",
+    resume:"Fait venir des couples et porte la réputation.",
+    PROSPECTS:0.022, NOTORIETE:0.05,
+  },
+};
+
+export const EQUIPE = {
+  NIVEAU_MAX: 4,
+  // Recruter : cout fixe, puis salaire quotidien. Le salaire est la vraie
+  // contrainte — une equipe trop grande coule la boutique en basse saison.
+  COUT_RECRUE_BASE: 900,
+  COUT_RECRUE_PAR_MEMBRE: 700,
+  SALAIRE_BASE: 26,
+  SALAIRE_PAR_NIVEAU: 14,
+  // Former : ca coute, et surtout ca PREND DES JOURS pendant lesquels le
+  // membre ne produit rien. C'est ce qui rend la basse saison utile.
+  COUT_FORMATION_BASE: 700,
+  COUT_FORMATION_PAR_NIVEAU: 850,
+  JOURS_FORMATION_BASE: 12,
+  JOURS_FORMATION_PAR_NIVEAU: 6,
+  // Combien de membres on peut avoir, par palier.
+  PLACES_BASE: 1,
+  PLACES_PAR_PALIER: 1,
+};
+
+/* =================================================================== codex
+   Ce que l'atelier a APPRIS. Le codex n'inscrit que ce qui a MARCHE — jamais
+   ce qui rate, jamais ce qui marche moins bien.
+
+   ⚠️ C'est une regle de design, pas une limite technique : le jeu connait
+   parfaitement les mauvais accords, et doit se taire dessus. Si le codex
+   listait les combinaisons a eviter, il donnerait la table d'affinites, et le
+   coeur du jeu — decouvrir pour qui une piece est faite — s'effondrerait. */
+
+export const CODEX = {
+  // Une decouverte s'inscrit quand l'axe concerne a ete VRAIMENT bon.
+  SEUIL_AXE: 68,
+  // Et seulement sur un mariage reussi : on n'apprend pas d'un ratage.
+  // (verifie dans codex.js)
+  SEUIL_NOTE: 60,
+};
 
 /* =============================================================== invariants
    `exiger` leve au chargement si un invariant est casse. Sur le projet

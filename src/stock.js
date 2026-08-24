@@ -147,10 +147,13 @@ export function bonusAffixes(a, axe){
  * le regenerer a l'affichage donnerait un catalogue different a chaque
  * ouverture de l'onglet, et la partie cesserait d'etre reproductible.
  */
+export const tailleCatalogue = palier =>
+  STOCK.CATALOGUE_TAILLE + STOCK.CATALOGUE_PAR_PALIER * (palier - 1);
+
 export function tirerCatalogue(palier){
   const tierMax = clamp(palier, 1, 5);
   const out = [];
-  for(let i = 0; i < STOCK.CATALOGUE_TAILLE; i++){
+  for(let i = 0; i < tailleCatalogue(palier); i++){
     const slot = SLOTS_STOCK[i % SLOTS_STOCK.length];
     out.push(creerArticle(slot, tierMax));
   }
