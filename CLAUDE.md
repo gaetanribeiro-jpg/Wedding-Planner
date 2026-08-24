@@ -360,18 +360,55 @@ ont été trouvés sur les planches, en une passe.
 
 ## Charte graphique
 
-On quitte l'ardoise nuit + cyan de SAO. Registre chaud, mais **mêmes règles de
-forme** : zéro arrondi, zéro dégradé, zéro ombre douce, bordures franches de
-2 px.
+**REGISTRE PARCHEMIN.** Le châssis, les panneaux et les menus sont en beige,
+l'encre est brune, et un cadre de bois tient le tout. *(La première version
+était une ardoise sombre — arbitré avec l'utilisateur : trop gris/noir.)*
+
+Les règles de forme ne bougent pas : **zéro dégradé, zéro ombre floue**. Le
+relief est fait de **deux arêtes nettes** — une claire en haut à gauche, une
+sombre en bas à droite. C'est le biseau des jeux de gestion pixel : il ne coûte
+aucun dégradé et il rend un bouton lisible *comme* bouton sans avoir à l'écrire.
 
 | Jeton | Valeur | Métier — un seul par couleur |
 |---|---|---|
-| `--nuit` | `#2e2434` | châssis, fonds de panneau |
-| `--creme` | `#f7efe4` | texte, papier |
-| `--or` | `#d8a94a` | argent, récompenses |
-| `--poudre` | `#e69aa6` | état actif, sélection |
-| `--prune` | `#8c4f6b` | urgence, contrat perdu |
-| `--vert` | `#7fa87a` | prestataires, réussite |
+| `--p0` … `--p4` | `#fdf7ea` → `#c9ac78` | le parchemin, du clair au foncé |
+| `--bois` | `#8a5a2e` | le cadre, les bordures |
+| `--encre` | `#3f2d1c` | le texte |
+| `--or-vif` | `#e2ae3e` | argent, récompenses, **onglet actif** |
+| `--bleu` | `#3f6fa8` | **la navigation** : onglets, vitesse. Jamais une donnée de jeu. |
+| `--poudre` | `#b94a6f` | sélection |
+| `--prune` | `#8a2c4f` | urgence, contrat perdu |
+| `--vert` | `#4a7540` | prestataires, réussite |
+
+Le **bleu est le métier de la navigation**, et rien d'autre. C'est ce qui
+permet de lire un onglet sans le décoder : tout ce qui est bleu se clique pour
+aller ailleurs, tout ce qui est or est une valeur ou l'endroit où l'on est.
+
+⚠️ **Les couleurs de `config.js` ont DEUX métiers**, et c'est le piège de cette
+passe. `STYLE[x].couleur` teinte un sprite **sur le canvas** *et* sert d'encre
+**dans le DOM**. Elles sont claires parce que le canvas était sombre ; sur
+parchemin, le romantique tombe à **2,2:1** et le bohème à 2,4:1 — illisible.
+Ne les « corrige » pas dans `config.js` : tu casserais les sprites, qui sont
+justes. C'est `encre()` dans `ui.js` qui les assombrit **au moment de
+l'affichage**, jusqu'à 4,5:1 sur parchemin.
+
+Et `encre()` passe **par HSL, pas par une multiplication des canaux** :
+- multiplier les canaux rapproche la couleur de l'axe gris → les quatre styles
+  sortaient en quatre **bruns indistincts**, ce qui est pire qu'illisible :
+  c'est trompeur ;
+- multiplier pour *saturer* fait saturer les canaux hauts → l'or (216,169,74)
+  voyait rouge ET vert taper 255, donc il virait **olive**. Un clamp qui touche
+  deux canaux sur trois ne conserve plus la teinte du tout.
+
+En HSL la teinte est un nombre qu'on ne touche pas : elle survit par
+construction. Seule la clarté descend, par petits pas, jusqu'au contraste visé.
+
+⚠️ **Un aplat n'a pas à être lisible, il a à être vu.** `encre()` ne s'applique
+qu'au **texte** et aux **bordures**. Les remplissages de jauge, les pastilles
+du codex et les pastilles de ressource gardent la couleur vive. Corollaire
+inverse, payé une fois : une **piste** de jauge en `#c9ac78` se lit comme un
+remplissage doré, donc une jauge à 5 % paraissait pleine. La piste doit être
+franchement plus claire que n'importe quel remplissage, sinon elle ment.
 
 Typo : Silkscreen pour les titres, JetBrains Mono pour le reste. Une seule
 exception au « zéro dégradé » : le ciel du jour J et de l'écran titre — un

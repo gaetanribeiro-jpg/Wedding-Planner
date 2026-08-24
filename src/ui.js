@@ -182,6 +182,69 @@ function bandeaux(G){
 
 /* ================================================================ panneaux */
 
+/**
+ * Assombrit une couleur de `config.js` jusqu'a ce qu'elle se lise SUR
+ * PARCHEMIN.
+ *
+ * ⚠️ Les couleurs de config.js ont DEUX METIERS : elles teintent un sprite sur
+ * le canvas, et elles servent d'encre ici. Elles ont ete choisies claires
+ * parce que le canvas etait sombre — sur le beige, le romantique tombe a
+ * 2,2:1 et le boheme a 2,4:1, c'est-a-dire illisible.
+ *
+ * On ne les corrige PAS dans config.js : on y casserait les sprites, qui sont
+ * justes. On les assombrit ICI, au moment de l'affichage, et seulement pour
+ * ce qui est du TEXTE ou une BORDURE. Un aplat de jauge ou une pastille garde
+ * la couleur vive : c'est un fond, il n'a pas a etre lisible, il a a etre vu.
+ *
+ * Pure et deterministe — aucun `alea()`, donc le rendu ne decale pas la
+ * simulation (piege herite n°1).
+ */
+const _encreCache = {};
+export function encre(hex){
+  if(_encreCache[hex]) return _encreCache[hex];
+  const n = parseInt(hex.slice(1), 16);
+  const R = ((n >> 16) & 255) / 255, V = ((n >> 8) & 255) / 255, B = (n & 255) / 255;
+
+  /* ⚠️ ON PASSE PAR HSL, et pas par une multiplication des canaux. Assombrir
+     en multipliant rapproche les canaux de l'axe gris — les quatre styles
+     sortaient en quatre bruns indistincts. Et SATURER en multipliant fait
+     saturer les canaux hauts : l'or (216,169,74) voyait rouge ET vert taper
+     255, donc il virait OLIVE. Un clamp qui touche deux canaux sur trois ne
+     conserve plus la teinte du tout.
+     En HSL, la teinte est un nombre qu'on ne touche pas : elle survit par
+     construction. */
+  const mx = Math.max(R, V, B), mn = Math.min(R, V, B), d = mx - mn;
+  let h = 0;
+  if(d){
+    if(mx === R)      h = ((V - B) / d + (V < B ? 6 : 0)) / 6;
+    else if(mx === V) h = ((B - R) / d + 2) / 6;
+    else              h = ((R - V) / d + 4) / 6;
+  }
+  let l = (mx + mn) / 2;
+  let sat = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+  sat = Math.min(1, sat * 1.15);          // un peu plus franc, teinte intacte
+
+  const versRgb = () => {
+    const c = (1 - Math.abs(2 * l - 1)) * sat, x = c * (1 - Math.abs((h * 6) % 2 - 1));
+    const m = l - c / 2, i = Math.floor(h * 6) % 6;
+    const t = [[c,x,0],[x,c,0],[0,c,x],[0,x,c],[x,0,c],[c,0,x]][i];
+    return t.map(u => Math.round((u + m) * 255));
+  };
+  const lin = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const FOND = 0.2126 * lin(246) + 0.7152 * lin(234) + 0.0722 * lin(212);
+  const contraste = () => {
+    const [r, v, b] = versRgb();
+    const L = 0.2126 * lin(r) + 0.7152 * lin(v) + 0.0722 * lin(b);
+    return (FOND + 0.05) / (L + 0.05);
+  };
+  // On ne baisse que la CLARTE, par petits pas, jusqu'a 4,5:1 sur parchemin.
+  for(let i = 0; i < 40 && l > 0.12 && contraste() < 4.5; i++) l -= 0.02;
+
+  const out = "#" + versRgb().map(x => x.toString(16).padStart(2, "0")).join("");
+  _encreCache[hex] = out;
+  return out;
+}
+
 const jauge = (v, max, col) =>
   `<span class="jauge"><i style="width:${Math.max(0, Math.min(100, v/max*100))}%;background:${col}"></i></span>`;
 
@@ -250,8 +313,8 @@ function carteArticle(a, G, extra = ""){
     <i class="vign" style="${R.styleSprite(R.vignetteArticle(a), 34)}"></i>
     <div class="corps">
       <b>${ech(f.nom)}</b>
-      <span class="pill" style="border-color:${STYLE[a.style].couleur};color:${STYLE[a.style].couleur}">${ech(f.styleTxt)}</span>
-      <span class="pill" style="border-color:${f.couleur};color:${f.couleur}">T${f.tier} ${ech(f.rareteTxt)}</span>
+      <span class="pill" style="border-color:${encre(STYLE[a.style].couleur)};color:${encre(STYLE[a.style].couleur)}">${ech(f.styleTxt)}</span>
+      <span class="pill" style="border-color:${encre(f.couleur)};color:${encre(f.couleur)}">T${f.tier} ${ech(f.rareteTxt)}</span>
       ${f.affixes.map(x => `<span class="pill faible">${ech(x)}</span>`).join("")}
       ${f.usages ? `<span class="faible">porté ${f.usages}×</span>` : ""}
     </div>
@@ -323,7 +386,7 @@ function ficheProspect(p, G, cap){
         <span class="faible">${p.invites} invités · ${fmt(p.budget)} € ·
           ${ech(p.lieuTxt)} · dans ${p.jourJPrevu - G.jour} jours</span>
       </div>
-      <span class="pill" style="border-color:${STYLE[Clients.styleDominant(p)].couleur};color:${STYLE[Clients.styleDominant(p)].couleur}">
+      <span class="pill" style="border-color:${encre(STYLE[Clients.styleDominant(p)].couleur)};color:${encre(STYLE[Clients.styleDominant(p)].couleur)}">
         ${ech(STYLE[Clients.styleDominant(p)].txt)}</span>
     </div>
     ${gouts(p)}
@@ -408,7 +471,7 @@ function slotCase(c, slot, G){
   }
   return `<button class="slot" data-act="slot" data-id="${c.id}" data-slot="${slot}" ${on ? "data-on" : ""}>
     <u>${ech(SLOT[slot].txt)}</u><b>${ech(nom)}</b>
-    ${style ? `<span class="pill" style="border-color:${STYLE[style].couleur};color:${STYLE[style].couleur}">${ech(STYLE[style].txt)}</span>` : ""}</button>`;
+    ${style ? `<span class="pill" style="border-color:${encre(STYLE[style].couleur)};color:${encre(STYLE[style].couleur)}">${ech(STYLE[style].txt)}</span>` : ""}</button>`;
 }
 
 /**
@@ -443,7 +506,7 @@ function choixPourSlot(c, slot, G){
     ${cands.map(p => `<div class="carte-art">
       <i class="vign" style="${R.styleSprite(R.vignettePresta(p.cle), 30)}"></i>
       <div class="corps"><b>${ech(p.txt)}</b>
-        <span class="pill" style="border-color:${p.couleur};color:${p.couleur}">${ech(p.styleTxt)}</span>
+        <span class="pill" style="border-color:${encre(p.couleur)};color:${encre(p.couleur)}">${ech(p.styleTxt)}</span>
         <span class="faible">qualité ${p.qualite} · ${fmt(p.prix)} €</span>
         ${p.fidelite ? `<span class="pill vert">fidélité ${p.fidelite}</span>` : ""}
         ${p.libre ? "" : `<span class="pill prune">pris par ${p.occupePar === "joueur" ? "toi" : ech(p.occupePar)}</span>`}
@@ -474,7 +537,7 @@ function pPrestataires(G){
         return `<div class="ligne">
           <i class="vign" style="${R.styleSprite(R.vignettePresta(k), 26)}"></i>
           <b style="min-width:150px">${ech(p.txt)}</b>
-          <span class="pill" style="border-color:${p.couleur};color:${p.couleur}">${ech(p.styleTxt)}</span>
+          <span class="pill" style="border-color:${encre(p.couleur)};color:${encre(p.couleur)}">${ech(p.styleTxt)}</span>
           ${jauge(p.qualite, 100, "#7fa87a")}
           <span class="or" style="min-width:70px;text-align:right">${fmt(p.prix)} €</span>
           <span class="${p.libre ? "vert" : "prune"}" style="min-width:110px;text-align:right">
@@ -506,7 +569,7 @@ function pEquipe(G){
         : `<div class="grille-cat">
             ${Object.entries(ROLES).map(([k, r]) => `<button class="carte"
               data-act="recruter" data-role="${k}" ${G.argent < cout ? "disabled" : ""}>
-              <b style="color:${r.couleur}">${ech(r.txt)}</b>
+              <b style="color:${encre(r.couleur)}">${ech(r.txt)}</b>
               <span class="faible">${ech(r.resume)}</span></button>`).join("")}
           </div>`}
     </div>
@@ -522,7 +585,7 @@ function pEquipe(G){
       ${Object.entries(ROLES).map(([k, r]) => {
         const n = Equipe.apport(G.equipe, k, G.jour);
         return `<div class="ligne mince">
-          <b style="min-width:120px;color:${r.couleur}">${ech(r.txt)}</b>
+          <b style="min-width:120px;color:${encre(r.couleur)}">${ech(r.txt)}</b>
           ${jauge(n, EQUIPE.NIVEAU_MAX * 2, r.couleur)}
           <b style="min-width:26px;text-align:right">${n}</b></div>`;
       }).join("")}
@@ -534,8 +597,8 @@ function ficheEquipier(m, G){
   const f = Equipe.ficheMembre(m, G.jour);
   return `<div class="bloc">
     <div class="ligne">
-      <b style="color:${f.couleur};min-width:110px">${ech(f.nom)}</b>
-      <span class="pill" style="border-color:${f.couleur};color:${f.couleur}">${ech(f.roleTxt)}</span>
+      <b style="color:${encre(f.couleur)};min-width:110px">${ech(f.nom)}</b>
+      <span class="pill" style="border-color:${encre(f.couleur)};color:${encre(f.couleur)}">${ech(f.roleTxt)}</span>
       <span class="faible">niveau ${f.niveau}/${f.niveauMax} · ${f.salaire} €/j</span>
       <span style="flex:1"></span>
       ${f.enFormation
@@ -544,7 +607,8 @@ function ficheEquipier(m, G){
           ? `<button data-act="former" data-id="${f.id}" ${G.argent < f.coutFormation ? "disabled" : ""}>
                former · ${fmt(f.coutFormation)} € · ${f.joursFormation} j</button>`
           : `<span class="or">au sommet</span>`}
-      <button data-act="renvoyer" data-id="${f.id}" class="danger">✕</button>
+      <button data-act="renvoyer" data-id="${f.id}" class="danger mini"
+              title="Remercier ${ech(f.nom)}">✕</button>
     </div>
     <div class="ligne mince faible">${ech(f.resume)}</div>
   </div>`;
@@ -568,8 +632,8 @@ function pCodex(G){
   return `<div class="deux">
     <div class="panneau">
       <span class="etiq">CE QUE L'ATELIER A APPRIS · ${av.trouves} entrées</span>
-      <div class="ligne faible">On ne note ici que ce qui a <b>marché</b>.
-        Ce qui ne marche pas, il faudra le découvrir en le ratant.</div>
+      <div class="ligne faible">On ne note ici que ce qui a <b>marché</b>. Ce
+        qui ne marche pas, il faudra le découvrir en le ratant.</div>
       ${bloc("ACCORDS DE STYLES ÉPROUVÉS",
         acc.map(a => `<div class="ligne">
           <span class="pastille" style="background:${a.couleurA}"></span>
@@ -585,7 +649,7 @@ function pCodex(G){
       ${bloc("PRESTATAIRES QUI ONT PORTÉ UN MARIAGE",
         pre.map(x => `<div class="ligne">
           <b style="min-width:150px">${ech(x.txt)}</b>
-          <span class="pill" style="border-color:${x.couleur};color:${x.couleur}">
+          <span class="pill" style="border-color:${encre(x.couleur)};color:${encre(x.couleur)}">
             couple ${ech(x.goutTxt.toLowerCase())}</span>
           <span class="faible">${x.n}×</span></div>`).join(""),
         "Rien encore. Un prestataire s'inscrit ici quand l'émotion est forte.")}
@@ -593,7 +657,7 @@ function pCodex(G){
         fam.map(x => `<div class="ligne">
           <span class="faible" style="min-width:74px">${ech(x.slotTxt)}</span>
           <b style="min-width:120px">${ech(x.txt)}</b>
-          <span class="pill" style="border-color:${x.couleur};color:${x.couleur}">
+          <span class="pill" style="border-color:${encre(x.couleur)};color:${encre(x.couleur)}">
             couple ${ech(x.goutTxt.toLowerCase())}</span>
           <span class="faible">${x.n}×</span></div>`).join(""),
         "Rien encore. Une pièce s'inscrit ici quand l'élégance est forte.")}
@@ -622,14 +686,14 @@ function pSalon(G){
     }).join("")}
     <span class="etiq">LA COURSE À LA NOTORIÉTÉ</span>
     ${classementLignes(G).map(r => `<div class="ligne">
-      <b style="min-width:18px;color:${r.couleur}">${r.rang}</b>
-      <b style="min-width:170px;color:${r.couleur}">${ech(r.txt)}${r.joueur ? " (toi)" : ""}</b>
+      <b style="min-width:18px;color:${encre(r.couleur)}">${r.rang}</b>
+      <b style="min-width:170px;color:${encre(r.couleur)}">${ech(r.txt)}${r.joueur ? " (toi)" : ""}</b>
       ${jauge(r.notoriete, Math.max(...classementLignes(G).map(x => x.notoriete), 1), r.couleur)}
       <b style="min-width:52px;text-align:right">${fmt(r.notoriete)}</b></div>`).join("")}
     <span class="etiq">PALMARÈS</span>
     ${G.salons.length ? G.salons.map(s => `<div class="ligne">
       <b style="min-width:60px">An ${s.annee}</b>
-      <span class="pill" style="border-color:${STYLE[s.theme].couleur};color:${STYLE[s.theme].couleur}">${ech(s.themeTxt)}</span>
+      <span class="pill" style="border-color:${encre(STYLE[s.theme].couleur)};color:${encre(STYLE[s.theme].couleur)}">${ech(s.themeTxt)}</span>
       <b class="${s.rang === 1 ? "or" : ""}">${s.participe ? `${s.rang}ᵉ · ${s.points} pts` : "absent"}</b>
       <span class="faible">${ech(s.resume)}</span></div>`).join("")
       : `<div class="ligne faible">Aucun salon encore couru.</div>`}
@@ -644,13 +708,13 @@ function pConcurrents(G){
   return `<div class="panneau">
     <span class="etiq">LA COURSE À LA NOTORIÉTÉ</span>
     ${rangs.map(r => `<div class="ligne">
-      <b style="min-width:18px;color:${r.couleur}">${r.rang}</b>
-      <b style="min-width:170px;color:${r.couleur}">${ech(r.txt)}${r.joueur ? " (toi)" : ""}</b>
+      <b style="min-width:18px;color:${encre(r.couleur)}">${r.rang}</b>
+      <b style="min-width:170px;color:${encre(r.couleur)}">${ech(r.txt)}${r.joueur ? " (toi)" : ""}</b>
       ${jauge(r.notoriete, max, r.couleur)}
       <b style="min-width:52px;text-align:right">${fmt(r.notoriete)}</b></div>`).join("")}
     <span class="etiq">CE QU'ILS T'ONT PRIS</span>
     ${G.concurrents.map(c => `<div class="ligne faible">
-      <b style="color:${c.couleur};min-width:170px">${ech(c.txt)}</b>
+      <b style="color:${encre(c.couleur)};min-width:170px">${ech(c.txt)}</b>
       ${c.reprises} couple${c.reprises > 1 ? "s" : ""} récupéré${c.reprises > 1 ? "s" : ""}
       · style ${ech(STYLE[c.style].txt.toLowerCase())}</div>`).join("")}
   </div>`;
@@ -758,8 +822,8 @@ export function modalSalon(G, res, surChoix){
     <div class="panneau">
       <span class="etiq">CLASSEMENT</span>
       ${res.lignes.map(l => `<div class="ligne">
-        <b style="min-width:18px;color:${l.couleur}">${l.rang}</b>
-        <b style="min-width:150px;color:${l.couleur}">${ech(l.txt)}</b>
+        <b style="min-width:18px;color:${encre(l.couleur)}">${l.rang}</b>
+        <b style="min-width:150px;color:${encre(l.couleur)}">${ech(l.txt)}</b>
         ${jauge(l.points, max, l.couleur)}
         <b style="min-width:44px;text-align:right">${l.points}</b></div>`).join("")}
       <div class="ligne"><b>${ech(res.resume)}</b></div>

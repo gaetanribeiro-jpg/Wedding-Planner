@@ -22,6 +22,12 @@
  * systeme si le reseau manque.
  *
  * Lancer : npm run solo   →  dist/atelier-du-jour-j.html
+ *          npm run solo -- --artefact  →  dist/artefact.html
+ *
+ * ⚠️ Le mode `--artefact` sort le CORPS DE PAGE SEUL — pas de doctype, pas de
+ * <html>, pas de <head>, pas de <body>. C'est ce qu'attend un hebergeur qui
+ * enveloppe lui-meme le fichier dans son propre squelette. Le jeu ne charge
+ * aucune ressource hors la police, donc les deux sorties sont autonomes.
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -143,9 +149,34 @@ if(sortie === html){
 }
 
 mkdirSync(join(RACINE, "dist"), { recursive: true });
-const chemin = join(RACINE, "dist", "atelier-du-jour-j.html");
-writeFileSync(chemin, sortie);
 
-console.log(`dist/atelier-du-jour-j.html — ${(sortie.length/1024).toFixed(0)} ko, `
-          + `${ORDRE.length} modules repliés, chacun dans sa portée.`);
+const artefact = process.argv.includes("--artefact");
+const nom = artefact ? "artefact.html" : "atelier-du-jour-j.html";
+
+/* En mode artefact on ne garde que ce qui vit DANS le corps : le titre (que
+   l'hebergeur va chercher pour nommer la page), la police, la feuille de
+   style, le point de montage et le code. Le reste du squelette est fourni. */
+let rendu = sortie;
+if(artefact){
+  const morceau = (ouvre, ferme) => {
+    const a = html.indexOf(ouvre);
+    if(a < 0) return "";
+    const b = html.indexOf(ferme, a);
+    return html.slice(a, b + ferme.length);
+  };
+  rendu = [
+    morceau("<title>", "</title>"),
+    morceau(`<link href="https://fonts.googleapis.com`, ">"),
+    morceau("<style>", "</style>"),
+    `<div id="app"></div>`,
+    script,
+  ].join("\n");
+}
+
+const chemin = join(RACINE, "dist", nom);
+writeFileSync(chemin, rendu);
+
+console.log(`dist/${nom} — ${(rendu.length/1024).toFixed(0)} ko, `
+          + `${ORDRE.length} modules repliés, chacun dans sa portée`
+          + (artefact ? " (corps de page seul)." : "."));
 console.log(`Aucune image, aucun son : tout est dessiné et synthétisé à l'exécution.`);

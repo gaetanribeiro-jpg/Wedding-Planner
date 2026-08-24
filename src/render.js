@@ -22,11 +22,16 @@ import * as Gens from "./gens.js";
 import { MEUBLES, SLOT, SLOTS, STYLE, FAMILLES, PRESTATAIRES } from "./config.js";
 import { nomCouple } from "./clients.js";
 
+/* ⚠️ Ces couleurs sont celles du CANVAS, pas celles du DOM. La boutique est le
+   plus gros bloc de l'ecran : peinte en ardeur sombre, elle annulait a elle
+   seule le registre parchemin du reste de l'interface. Elle est desormais
+   claire — murs blush, parquet miel — et c'est le mobilier qui donne les
+   accents, pas le fond. */
 export const C = {
-  nuit:"#2e2434", nuit2:"#3d3044", bord:"#584a63",
-  creme:"#f7efe4", creme2:"#e8dcc9",
-  or:"#d8a94a", poudre:"#e69aa6", prune:"#8c4f6b", vert:"#7fa87a",
-  texte:"#f4ecdf", faible:"#a89bb0",
+  nuit:"#e8d5bd", nuit2:"#dcc39f", bord:"#8a5a2e",
+  creme:"#fdf7ea", creme2:"#f0e2c8",
+  or:"#c98f22", poudre:"#d4788c", prune:"#8c2f52", vert:"#5a8a4f",
+  texte:"#3f2d1c", faible:"#87704f",
 };
 
 const DORE = C.or;
@@ -75,11 +80,16 @@ export function dessinerBoutique(ctx, G, vue = {}){
      deux extremites part en diagonale a travers la piece : deux points
      eloignes sur une grille isometrique ne definissent pas un mur, ils
      definissent une corde. Meme raison pour la plinthe et les banderoles. */
-  for(let i = 0; i < b.h; i++) mur(e(-1,i), e(-1,i+1), 58, "#6b5566");
-  for(let i = 0; i < b.l; i++) mur(e(i,-1), e(i+1,-1), 58, "#7d6478");
+  // Le mur de gauche est le mur d'ombre, celui du fond prend la lumiere : deux
+  // valeurs franches valent mieux qu'un degrade, et c'est ce qui donne le
+  // volume de la piece sans une seule ombre douce.
+  for(let i = 0; i < b.h; i++) mur(e(-1,i), e(-1,i+1), 58, "#cfab9a");
+  for(let i = 0; i < b.l; i++) mur(e(i,-1), e(i+1,-1), 58, "#e3c4b1");
 
   // Papier peint raye : un aplat uni sur un tiers d'ecran fait carton.
-  ctx.fillStyle = "rgba(255,255,255,.055)";
+  // ⚠️ Sur un mur clair, une rayure blanche disparait. C'est la lecon de
+  // l'ombrage qui ne mord pas sur du presque-blanc : on raye en FONCE.
+  ctx.fillStyle = "rgba(90,50,40,.10)";
   for(let i = 0; i < b.l*3; i++){ const p = e(i/3,-1); ctx.fillRect(p.x, p.y-58, 1, 58); }
   for(let i = 0; i < b.h*3; i++){ const p = e(-1,i/3); ctx.fillRect(p.x, p.y-58, 1, 58); }
 
@@ -91,13 +101,13 @@ export function dessinerBoutique(ctx, G, vue = {}){
   // La vitrine sur rue.
   {
     const p = e(3,-1), q = e(5.4,-1);
-    mur(p, q, 50, "#4a3a48");
+    mur(p, q, 50, "#8a5a2e");
     ctx.fillStyle = "#cfe4ea"; ctx.beginPath();
     ctx.moveTo(p.x+3, p.y-16); ctx.lineTo(q.x-3, q.y-16);
     ctx.lineTo(q.x-3, q.y-46); ctx.lineTo(p.x+3, p.y-46); ctx.closePath(); ctx.fill();
     const m = e(4.2,-1);
-    ctx.fillStyle = "#4a3a48"; ctx.fillRect(m.x-1, m.y-46, 2, 30);
-    mur(p, q, 15, DORE); mur(p, q, 12, "#4a3a48");
+    ctx.fillStyle = "#8a5a2e"; ctx.fillRect(m.x-1, m.y-46, 2, 30);
+    mur(p, q, 15, DORE); mur(p, q, 12, "#8a5a2e");
   }
 
   /* Le parquet, deux tons, plus un semis DETERMINISTE : le nœud du bois vient
